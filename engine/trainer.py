@@ -1,16 +1,24 @@
+import io
 import logging
 import os
 import sys
-from datetime import datetime
+from collections import namedtuple, defaultdict
+from operator import itemgetter
 from pathlib import Path
 
 import numpy as np
 import torch
+import torch.nn.functional as F
+from pytorch3d.ops import knn_points
+from scipy.spatial import ConvexHull, Delaunay
+
+from models.palette.Additive_mixing_layers_extraction import DCPPointTriangle, Hull_Simplification_determined_version
+
 try:
     from torch.utils.tensorboard import SummaryWriter
 except:
     pass
-from tqdm import trange, tqdm
+from tqdm import trange
 
 from data import dataset_dict
 from models import MODEL_ZOO
@@ -20,6 +28,8 @@ from utils.recon import convert_sdf_samples_to_ply
 from utils.render import chunkify_render, N_to_reso, cal_n_samples
 from utils.fs import seek_checkpoint
 from utils.color import sort_palette
+
+RegWeights_t = namedtuple('RegWeights_t', 'E_opaque PD BLACK')
 
 
 class SimpleSampler:
@@ -53,6 +63,7 @@ class Trainer:
     def __init__(self, args, run_dir, ckpt_dir, tb_dir):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.renderer = chunkify_render
+        self.reg_weights = RegWeights_t(E_opaque=-1. / 375, PD=1., BLACK=.1)
 
         self.args = args
         self.optimizer = None
@@ -74,7 +85,10 @@ class Trainer:
         self.reso_cur = N_to_reso(args.N_voxel_init, self.aabb)
         self.reso_mask = None
         self.nSamples = min(args.nSamples, cal_n_samples(self.reso_cur, args.step_ratio))
-        self.palette = self.build_palette(args.palette_path, args.shadingMode == 'PLT_AlphaBlend')
+        self.palette, hull_vertices = self.build_palette(args.palette_path, args.shadingMode == 'PLT_AlphaBlend')
+        self.hull = ConvexHull(hull_vertices)
+        self.de = Delaunay(hull_vertices)
+        self.hull_vertices = torch.from_numpy(hull_vertices).to(self.device, dtype=torch.float32)
 
         print("[trainer init] aabb", self.aabb.tolist())
         print("[trainer init] num of render samples", self.nSamples)
@@ -83,7 +97,7 @@ class Trainer:
         # linear in logrithmic space
         self.N_voxel_list = torch.round(torch.exp(torch.linspace(
             np.log(args.N_voxel_init), np.log(args.N_voxel_final), len(args.upsamp_list) + 1))).long().tolist()[1:]
-        
+
         # loss function
         self.tvreg = TVLoss()
 
@@ -100,22 +114,24 @@ class Trainer:
             args.lr_decay_iters = args.n_iters
             self.lr_factor = args.lr_decay_target_ratio ** (1 / args.n_iters)
         print("[trainer init] lr decay", args.lr_decay_target_ratio, args.lr_decay_iters)
+        self.ones = torch.ones((1, 1), device=self.device)
 
-    def build_palette(self, filepath, is_sort_palette=False):
-        # filepath = Path(filepath)
-        # rgbs = self.train_dataset.all_rgbs
-        # if self.train_dataset.white_bg:
-        #     fg = torch.lt(rgbs, 1.).any(dim=-1)
-        #     rgbs = rgbs[fg]
-        # rgbs = rgbs.to(device='cpu', dtype=torch.double).numpy()
-        # return sort_palette(rgbs, Hull_Simplification_determined_version(
-        #     rgbs, filepath.stem + "-convexhull_vertices", error_thres=1. / 256.))
-        palette = np.load(filepath)
-        palette = torch.from_numpy(palette).float()
-        if is_sort_palette:
-            all_rgbs = self.train_dataset.all_rgbs
-            return sort_palette(all_rgbs, palette)
-        return palette
+    def build_palette(self, filepath, is_sort_palette=True, simplify=True):
+        filepath = Path(filepath)
+        rgbs = self.train_dataset.all_rgbs
+        if self.train_dataset.white_bg:
+            fg = torch.lt(rgbs, 1.).any(dim=-1)
+            rgbs = rgbs[fg]
+        bg = np.zeros((3,), dtype=np.float32) if self.reg_weights.BLACK > 0 else None
+        rgbs = rgbs.to(device='cpu', dtype=torch.double).numpy()
+        hull = ConvexHull(rgbs)
+        hull_vertices = hull.points[hull.vertices]
+        # palette = torch.from_numpy(np.load(filepath)).to(torch.float32)
+        palette = Hull_Simplification_determined_version(
+            rgbs, filepath.stem + "-convexhull_vertices") if simplify else hull_vertices
+        if bg is not None or is_sort_palette:
+            palette = sort_palette(rgbs, palette, bg=bg)
+        return palette, hull_vertices
 
     def build_network(self):
         args = self.args
@@ -145,29 +161,50 @@ class Trainer:
 
         return tensorf
 
-    # def plt_loss(self, plt_map, gt_train, weight=1.):
-    #     pix, opq = plt_map[..., :3], plt_map[..., 3:]
-    #     E_opaque = F.mse_loss(opq, self.ones.expand_as(opq), reduction='mean')
-    #     loss = F.mse_loss(pix, gt_train, reduction='mean')
-    #     return loss * weight, E_opaque * weight
+    def outsidehull_points_distance(self, inp_points, w_in=1e-3, w_out=1.):
+        points = inp_points.detach().to('cpu', dtype=torch.double).numpy()
+        simplex = self.de.find_simplex(points, tol=1e-8)
+        loss = knn_points(inp_points[simplex >= 0].unsqueeze(0), self.hull_vertices[None],
+                          K=1, return_sorted=False).dists
+        loss = w_in / n_in * loss.sum() if (n_in := loss.nelement()) else loss.sum()
+        ind, = np.nonzero(simplex < 0)
+        points = [min((DCPPointTriangle(pts, self.hull.points[j]) for j in self.hull.simplices),
+                      key=itemgetter('distance'))['closest'] for pts in points[ind]]
+        if points:
+            points = torch.asarray(points, device=inp_points.device, dtype=inp_points.dtype)
+            loss = loss + w_out * F.mse_loss(inp_points[ind], points, reduction='none').sum(dim=-1).max()
+
+        assert torch.isfinite(loss)
+        return loss
+
+    def plt_loss(self, plt_map, gt_train, palette, weight=1.):  # palette in 3xN
+        pix, opq = plt_map[..., :3], plt_map[..., 3:]
+        E_opaque = F.mse_loss(opq, self.ones.expand_as(opq), reduction='mean')
+        loss = F.mse_loss(pix, gt_train, reduction='mean')
+        reg_term = {'E_opaque': E_opaque,
+                    'PD': self.outsidehull_points_distance(palette.T),
+                    'BLACK': torch.linalg.vector_norm(palette[:, -1])}
+        return loss * weight, reg_term
+
+    def apply_weights(self, reg_term):
+        return sum(getattr(self.reg_weights, k) * v for k, v in reg_term.items())
 
     def train_one_batch(self, tensorf, iteration, rays_train, rgb_train):
         args = self.args
         white_bg = self.train_dataset.white_bg
         ndc_ray = args.ndc_ray
-        
-        loss_dict = {}
 
         rgb_map, _, _, weights, render_bufs = self.renderer(
             rays_train, tensorf, chunk=args.batch_size, N_samples=self.nSamples, white_bg=white_bg,
             ndc_ray=ndc_ray, device=self.device, is_train=True)
 
         # Loss
-        img_loss = torch.mean((rgb_map[..., :3] - rgb_train) ** 2)
+        img_loss, reg_term = self.plt_loss(rgb_map, rgb_train, tensorf.renderModule.palette)
+        loss_dict = {k: v.detach().item() for k, v in reg_term.items()}
         loss_dict['img_loss'] = img_loss.clone().detach().item()
 
-        total_loss = img_loss
-        
+        total_loss = img_loss + self.apply_weights(reg_term)
+
         # Regularization
         if self.Ortho_reg_weight > 0:
             loss_reg_ortho = tensorf.vector_comp_diffs()
@@ -247,6 +284,7 @@ class Trainer:
 
         torch.cuda.empty_cache()
         PSNRs, PSNRs_test = [], [0]
+        REGs = defaultdict(list)
 
         self.trainingSampler = SimpleSampler(self.train_dataset, args.batch_size)
         if not args.ndc_ray:
@@ -266,6 +304,8 @@ class Trainer:
 
             img_loss = loss_dict['img_loss']
             PSNRs.append(-10.0 * np.log(img_loss) / np.log(10.0))
+            for k in self.reg_weights._fields:
+                REGs[k].append(loss_dict[k])
             self.summary_writer.add_scalar('train/PSNR', PSNRs[-1], global_step=iteration)
             self.summary_writer.add_scalar('train/mse', img_loss, global_step=iteration)
 
@@ -285,21 +325,28 @@ class Trainer:
 
             # Print the current values of the losses.
             if iteration % args.progress_refresh_every == 0:
-                pbar.set_description(
-                    f'Iteration {iteration:05d}:'
-                    + f' train_psnr = {float(np.mean(PSNRs)):.2f}'
-                    + f' test_psnr = {float(np.mean(PSNRs_test)):.2f}'
-                    + f' mse = {img_loss:.6f}'
-                )
-                PSNRs = []
+                with io.StringIO(
+                        f'Iteration {iteration:05d}:'
+                        + f' train_psnr = {float(np.mean(PSNRs)):.2f}'
+                        + f' test_psnr = {float(np.mean(PSNRs_test)):.2f}'
+                        + f' mse = {img_loss:.6f}'
+                ) as s:
+                    s.seek(0, io.SEEK_END)
+                    for k, v in REGs.items():
+                        print(f' {k} = {sum(v) / len(v):.6f}', file=s, end='')
+                    pbar.set_description(s.getvalue())
+                PSNRs.clear()
+                REGs.clear()
 
             # Evaluation on testset
             if iteration % args.vis_every == args.vis_every - 1 and args.N_vis != 0:
                 try:
                     print(f'== evaluation ======> {args.N_vis} views')
                     savePath = Path(self.run_dir, f'testset_vis_{iteration:06d}')
-                    PSNRs_test = evaluation(self.test_dataset, tensorf, args, self.renderer, os.fspath(savePath), N_vis=args.N_vis,
-                                            N_samples=self.nSamples, white_bg=white_bg, ndc_ray=args.ndc_ray, palette=self.palette,
+                    PSNRs_test = evaluation(self.test_dataset, tensorf, args, self.renderer, os.fspath(savePath),
+                                            N_vis=args.N_vis,
+                                            N_samples=self.nSamples, white_bg=white_bg, ndc_ray=args.ndc_ray,
+                                            palette=self.palette,
                                             compute_extra_metrics=False, save_gt=True)
                     self.summary_writer.add_scalar('test/psnr', np.mean(PSNRs_test), global_step=iteration)
                     print(f'=== continue training ======>')
@@ -337,14 +384,16 @@ class Trainer:
         if args.render_train:
             print(f'=== render train ======> {args.expname}')
             filePath = logfolder / 'render_train'
-            PSNRs_test = evaluation(self.train_dataset, tensorf, args, self.renderer, os.fspath(filePath),  palette=self.palette,
+            PSNRs_test = evaluation(self.train_dataset, tensorf, args, self.renderer, os.fspath(filePath),
+                                    palette=self.palette,
                                     N_vis=-1, N_samples=-1, white_bg=white_bg, ndc_ray=ndc_ray, device=self.device)
             print(f'mean psnr: {np.mean(PSNRs_test)}')
 
         if args.render_test:
             print(f'=== render test ======> {args.expname}')
             filePath = logfolder / 'render_test'
-            PSNRs_test = evaluation(self.test_dataset, tensorf, args, self.renderer, os.fspath(filePath), palette=self.palette,
+            PSNRs_test = evaluation(self.test_dataset, tensorf, args, self.renderer, os.fspath(filePath),
+                                    palette=self.palette,
                                     N_vis=-1, N_samples=-1, white_bg=white_bg, ndc_ray=ndc_ray, device=self.device)
             print(f'mean psnr: {np.mean(PSNRs_test)}')
 
@@ -352,7 +401,8 @@ class Trainer:
             filePath = logfolder / 'render_path'
             c2ws = self.test_dataset.render_path
             print('=== render path ======>', c2ws.shape)
-            evaluation_path(self.test_dataset, tensorf, c2ws, self.renderer, os.fspath(filePath), N_samples=-1, palette=self.palette,
+            evaluation_path(self.test_dataset, tensorf, c2ws, self.renderer, os.fspath(filePath), N_samples=-1,
+                            palette=self.palette,
                             white_bg=white_bg, ndc_ray=ndc_ray, save_video=True, device=self.device)
 
         return PSNRs_test

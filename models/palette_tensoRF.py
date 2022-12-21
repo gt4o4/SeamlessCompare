@@ -1,26 +1,29 @@
 import torch
 import torch.nn.functional as F
+
 from .tensoRF import TensorVMSplit
 from .tensorBase import positional_encoding
 
 
 class AlphaBlendingPLTRender(torch.nn.Module):
-    '''
+    """
     Color decomposition scheme: alpha blending
-    '''
+    """
+
     def __init__(self, inChanel, viewpe=6, feape=6, featureC=128, palette=None):
         super().__init__()
 
         self.in_mlpC = 2 * viewpe * 3 + 2 * feape * inChanel + 3 + inChanel
         self.viewpe = viewpe
         self.feape = feape
-        len_palette = len(palette)
-        self.n_dim = 3 + len_palette
+        self.n_dim = 3 + (len_palette := len(palette)) - 1
         layer1 = torch.nn.Linear(self.in_mlpC, featureC)
         layer2 = torch.nn.Linear(featureC, featureC)
         layer3 = torch.nn.Linear(featureC, len_palette - 1)
         torch.nn.init.constant_(layer3.bias, 0)
-        self.register_buffer('palette', torch.as_tensor(palette, dtype=torch.float32), persistent=False)
+        palette = torch.as_tensor(palette, dtype=torch.float32)
+        # torch.nn.init.uniform_(palette)
+        self.register_parameter('palette', torch.nn.Parameter(palette.T, requires_grad=True))
 
         self.mlp = torch.nn.Sequential(layer1, torch.nn.LeakyReLU(inplace=True),
                                        layer2, torch.nn.LeakyReLU(inplace=True),
@@ -36,7 +39,7 @@ class AlphaBlendingPLTRender(torch.nn.Module):
         bary_coord = torch.cat((w_0, w_a, w_last), dim=-1)
         # bary_coord guarantee sum .eq. 1
         # assert torch.allclose(bary_coord.sum(dim=-1), torch.ones(()), atol=1e-3)
-        return bary_coord @ self.palette, bary_coord
+        return F.linear(bary_coord, self.palette), opaque
 
     def forward(self, pts, viewdirs, features):
         indata = [features, viewdirs]
@@ -50,7 +53,8 @@ class AlphaBlendingPLTRender(torch.nn.Module):
 
 
 class PaletteTensorVM(TensorVMSplit):
-    def init_render_func(self, shadingMode='PLT_Direct', pos_pe=6, view_pe=6, fea_pe=6, featureC=128, palette=None, **kwargs):
+    def init_render_func(self, shadingMode='PLT_Direct', pos_pe=6, view_pe=6, fea_pe=6, featureC=128, palette=None,
+                         **kwargs):
         print('[init_render_func]', "shadingMode", shadingMode, "pos_pe", pos_pe, "view_pe", view_pe, "fea_pe", fea_pe)
         if shadingMode == 'PLT_AlphaBlend':
             return AlphaBlendingPLTRender(self.app_dim, view_pe, fea_pe, featureC, palette).to(self.device)
