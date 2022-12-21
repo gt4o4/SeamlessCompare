@@ -131,7 +131,7 @@ class Trainer:
             rgbs, filepath.stem + "-convexhull_vertices") if simplify else hull_vertices
         if bg is not None or is_sort_palette:
             palette = sort_palette(rgbs, palette, bg=bg)
-        return palette, hull_vertices
+        return torch.as_tensor(palette, dtype=torch.float32), hull_vertices
 
     def build_network(self):
         args = self.args
