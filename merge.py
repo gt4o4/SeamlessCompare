@@ -216,20 +216,18 @@ class Merger(Evaluator):
         diff = rgb[:, 0:1, :] - rgb[:, 1:, :]
         diff_ogt = orig_rgb[:, 0:1, :] - orig_rgb[:, 1:, :]
 
-        valid = torch.zeros_like(mask)
-        valid.masked_scatter_(mask, torch.logical_not(pts.get_index()))
-        valid = torch.logical_and(valid[:, 0:1], valid[:, 1:])
-        loss_diff = torch.nn.functional.l1_loss(diff[valid], diff_ogt[valid], reduction='none')
+        valid = torch.logical_and(torch.bitwise_and(bit_mask[:, 0:1], 1), mask[:, 1:])
+        loss_diff = torch.nn.functional.mse_loss(diff[valid], diff_ogt[valid], reduction='none')
 
-        valid = torch.zeros_like(mask)
-        valid.masked_scatter_(mask, pts.get_index() > 0)
-        valid = torch.logical_and(valid[:, 0], torch.bitwise_and(bit_mask[:, 0], 1))
+        # valid = torch.zeros_like(mask)
+        # valid.masked_scatter_(mask, pts.get_index() > 0)
+        # valid = torch.logical_and(valid[:, 0], torch.bitwise_and(bit_mask[:, 0], 1))
+        #
+        # orig_rgb = torch.zeros_like(orig_rgb)
+        # orig_rgb[mask] = self.tensorf.tgt_rgb
+        # loss_pin = torch.nn.functional.l1_loss(orig_rgb[valid, 0], rgb[valid, 0], reduction='none')
 
-        orig_rgb = torch.zeros_like(orig_rgb)
-        orig_rgb[mask] = self.tensorf.tgt_rgb
-        loss_pin = torch.nn.functional.l1_loss(orig_rgb[valid, 0], rgb[valid, 0], reduction='none')
-
-        return loss_diff.mean(), loss_pin.mean()
+        return loss_diff.mean()  # , loss_pin.mean()
 
     def train_one_batch(self, bit_mask, cur_pts):
         bit_mask = bit_mask.to(self.device)
@@ -246,12 +244,11 @@ class Merger(Evaluator):
             sigma.masked_scatter_(cur_mask, validsigma)
 
         rgb[cur_mask] = self.tensorf.compute_radiance(xyz_sampled[cur_mask], cur_dirs[cur_mask])
-        loss_diff, loss_pin = self.compute_diff_loss(sigma_feature, rgb, bit_mask)
-        loss_total = loss_diff + loss_pin
+        loss_diff = self.compute_diff_loss(sigma_feature, rgb, bit_mask)
         self.optimizer.zero_grad()
-        loss_total.backward()
+        loss_diff.backward()
         self.optimizer.step()
-        return loss_diff.item(), loss_pin.item()
+        return loss_diff.item()
 
     def poisson_editing(self, pts, mask, dists, batch_size=65536):
         args = self.args
@@ -268,8 +265,8 @@ class Merger(Evaluator):
 
         batch_counter = count()
         for cur_pts, cur_mask, cur_dist in pbar:
-            loss_diff, loss_pin = self.train_one_batch(cur_mask, cur_pts)
-            pbar.set_description(f'loss_diff: {loss_diff:.4f}, loss_pin: {loss_pin:.4f}')
+            loss_diff = self.train_one_batch(cur_mask, cur_pts)
+            pbar.set_description(f'loss_diff: {loss_diff:.4f}')
 
             cur_idx = next(batch_counter)
             total = self.test_dataset.all_rays.shape[0]
