@@ -15,7 +15,7 @@ from .semantic_helper import VGGSemantic, PCASemantic
 
 class BlenderDataset(Dataset):
     def __init__(self, datadir, split='train', downsample=1.0, is_stack=False, N_vis=-1, semantic_type='vgg', pca=None):
-        self.white_bg = True
+        self.white_bg = False
         self.pca = pca
         self.N_vis = N_vis
         self.root_dir = datadir
