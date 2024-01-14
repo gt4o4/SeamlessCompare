@@ -95,6 +95,7 @@ def convert_sdf_samples_to_ply(
         level=0.5,
         offset=None,
         scale=None,
+        trot=None,
 ):
     """
     Convert sdf samples to .ply
@@ -123,10 +124,16 @@ def convert_sdf_samples_to_ply(
     mesh_points[:, 2] = bbox[0, 2] + verts[:, 2]
 
     # apply additional offset and scale
+    if trot is not None:
+        from scipy.spatial.transform import Rotation as R
+        mesh_points *= np.asarray(trot.scale)
+        mesh_points @= R.from_quat(np.roll(trot.rot, -1)).as_matrix().T
+        mesh_points += np.asarray(trot.trans)
+
     if scale is not None:
-        mesh_points = mesh_points / scale
+        mesh_points /= scale
     if offset is not None:
-        mesh_points = mesh_points - offset
+        mesh_points -= offset
 
     # try writing to the ply file
 

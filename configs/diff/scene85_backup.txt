@@ -2,6 +2,7 @@ dataset_name = blender
 datadir = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPH24/data_for_seamlessNeRF/scene85_backup
 expname = scene85_backup_VM
 basedir = ./log
+# transform = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPH24/data_for_seamlessNeRF/scan240_scan85_backup.json
 
 n_iters = 30000
 batch_size = 16384
@@ -32,7 +33,7 @@ fea_pe = 2
 L1_weight_inital = 8e-5
 L1_weight_rest = 4e-5
 rm_weight_mask_thre = 1e-4
-init_density_scale = 0.5
+init_density_scale = 0.8
 
 ## please uncomment following configuration if hope to training on cp model
 #model_name = TensorCP

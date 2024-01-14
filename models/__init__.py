@@ -1,3 +1,6 @@
+import json
+from types import SimpleNamespace
+
 from models.colorRF import ColorVMSplit, PoissonMLPRender
 from models.loss import PLTLoss
 from models.renderBase import PLTRender, MultiplePLTRender, SHRender, RGBRender, MLPRender_Fea, MLPRender_PE, MLPRender
@@ -14,6 +17,16 @@ class ClassCollection(dict):
 
     def get(self, name):
         return super().get(name, self.aliases.get(name, name))
+
+
+class TransformFile(SimpleNamespace):
+    @staticmethod
+    def load(filename):
+        with open(filename) as f:
+            return json.load(f, object_hook=TransformFile)
+
+    def __init__(self, d):
+        super().__init__(**d)
 
 
 MODEL_ZOO = ClassCollection(TensorVM, TensorCP, TensorVMSplit, ColorVMSplit)

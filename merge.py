@@ -26,13 +26,23 @@ class Merger(Evaluator):
         self.args = args
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.target = self.build_network(self.args.ckpt)
+        transform_type = getattr(args.transform, Path(args.datadir).stem.replace('scene', 'scan'), None)
+        tgt_trans = getattr(args.transform, Path(args.ckpt).stem.removesuffix('_VM').replace('scene', 'scan'), None)
+        if tgt_trans and not args.matrix:
+            from scipy.spatial.transform import Rotation as R
+            r = R.from_quat(np.roll(tgt_trans.rot, -1)).as_matrix() @ np.diag(tgt_trans.scale)
+            r = np.hstack((r, np.expand_dims(np.asarray(tgt_trans.trans), -1)))
+            r = np.vstack((r, np.array((0, 0, 0, 1))))
+            args.matrix = r.ravel().tolist()
 
         # init dataset
         dataset = dataset_dict[args.dataset_name]
+        # if not args.render_only else None
         train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_test, is_stack=False,
-                                semantic_type=args.semantic_type)  # if not args.render_only else None
+                                semantic_type=args.semantic_type, transform_type=transform_type)
         test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_test, is_stack=True,
-                               semantic_type=args.semantic_type, pca=getattr(train_dataset, 'pca', None))
+                               semantic_type=args.semantic_type, pca=getattr(train_dataset, 'pca', None),
+                               transform_type=transform_type)
         super().__init__(self.build_network(), args, test_dataset, train_dataset, pool=pool)
         self.tensorf.args = self.args
         self.optimizer = None
@@ -77,7 +87,7 @@ class Merger(Evaluator):
         else:
             save_path = save_path / os.path.basename(args.ckpt)
         save_path = save_path.with_stem(save_path.stem + '_pc').with_suffix('.ply')
-        gridSize = tensorf.gridSize   # * 2
+        gridSize = tensorf.gridSize  # * 2
         alpha, xyz = tensorf.getDenseAlpha(gridSize)
         pts = xyz[alpha > 0.005]
         pc = PointCloud(pts.cpu().numpy())
@@ -347,7 +357,7 @@ class Merger(Evaluator):
 
 def config_parser(parser):
     from dataLoader import dataset_dict
-    from models import MODEL_ZOO
+    from models import MODEL_ZOO, TransformFile
 
     parser.add_argument('--config', is_config_file=True, help='config file path')
     parser.add_argument("--expname", type=str, help='experiment name')
@@ -355,6 +365,7 @@ def config_parser(parser):
     parser.add_argument("--datadir", type=str, default='./data/llff/fern', help='input data directory')
 
     parser.add_argument('--downsample_test', type=float, default=1.0)
+    parser.add_argument("--transform", type=TransformFile.load, help='input transform')
     parser.add_argument('--matrix', type=float, nargs='+', default=())
     parser.add_argument("--lr_basis", type=float, default=1e-3, help='learning rate')
     parser.add_argument("--batch_size", type=int, default=8192)

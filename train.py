@@ -62,13 +62,15 @@ class Trainer:
     def __init__(self, args):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.renderer = OctreeRender_trilinear_fast
+        transform_type = getattr(args.transform, Path(args.datadir).stem.replace('scene', 'scan'), None)
 
         # init dataset
         dataset = dataset_dict[args.dataset_name]
         self.train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=False,
-                                     semantic_type=args.semantic_type)
+                                     semantic_type=args.semantic_type, transform_type=transform_type)
         self.test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True,
-                                    semantic_type=args.semantic_type, pca=getattr(self.train_dataset, 'pca', None))
+                                    semantic_type=args.semantic_type, pca=getattr(self.train_dataset, 'pca', None),
+                                    transform_type=transform_type)
 
         # init parameters
         # tensorVM, renderer = init_parameters(args, train_dataset.scene_bbox.to(device), reso_list[0])
@@ -359,18 +361,20 @@ class Trainer:
         tensorf.load(ckpt)
 
         alpha, _ = tensorf.getDenseAlpha()
+        # trot=self.transform_type
         convert_sdf_samples_to_ply(alpha.cpu(), f'{args.ckpt[:-3]}.ply', bbox=tensorf.aabb.cpu(), level=0.005)
 
 
 def config_parser(parser):
     from dataLoader import dataset_dict
-    from models import MODEL_ZOO, LOSS_ZOO, RENDER_ZOO
+    from models import MODEL_ZOO, LOSS_ZOO, RENDER_ZOO, TransformFile
 
     parser.add_argument('--config', is_config_file=True, help='config file path')
     parser.add_argument("--expname", type=str, help='experiment name')
     parser.add_argument("--basedir", type=str, default='./log', help='where to store ckpts and logs')
     parser.add_argument("--add_timestamp", type=int, default=0, help='add timestamp to dir')
     parser.add_argument("--datadir", type=str, default='./data/llff/fern', help='input data directory')
+    parser.add_argument("--transform", type=TransformFile.load, help='input transform')
     parser.add_argument("--progress_refresh_rate", type=int, default=10,
                         help='how many iterations to show psnrs or iters')
 
@@ -426,7 +430,7 @@ def config_parser(parser):
     parser.add_argument("--fea_pe", type=int, default=6, help='number of pe for features')
     parser.add_argument("--featureC", type=int, default=128, help='hidden feature channel in MLP')
     parser.add_argument("--palette_type", action='store_true', help='use palette for color')
-    parser.add_argument("--semantic_type", type=str, default='vgg', help='semantic type')
+    parser.add_argument("--semantic_type", type=str, help='semantic type')
     parser.add_argument("--lossMode", type=LOSS_ZOO.get, default='PLTLoss', choices=LOSS_ZOO)
 
     parser.add_argument("--ckpt", type=str, default=None,
