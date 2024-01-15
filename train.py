@@ -62,15 +62,18 @@ class Trainer:
     def __init__(self, args):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.renderer = OctreeRender_trilinear_fast
-        transform_type = getattr(args.transform, Path(args.datadir).stem.replace('scene', 'scan'), None)
+        if transform_type := getattr(args.transform, Path(args.datadir).stem.replace('scene', 'scan'), None):
+            transform_scale = transform_type.scale
+        else:
+            transform_scale = None
 
         # init dataset
         dataset = dataset_dict[args.dataset_name]
         self.train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=False,
-                                     semantic_type=args.semantic_type, transform_type=transform_type)
+                                     semantic_type=args.semantic_type, transform_scale=transform_scale)
         self.test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True,
                                     semantic_type=args.semantic_type, pca=getattr(self.train_dataset, 'pca', None),
-                                    transform_type=transform_type)
+                                    transform_scale=transform_scale)
 
         # init parameters
         # tensorVM, renderer = init_parameters(args, train_dataset.scene_bbox.to(device), reso_list[0])

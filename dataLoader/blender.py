@@ -17,7 +17,7 @@ from .semantic_helper import VGGSemantic, PCASemantic
 
 class BlenderDataset(Dataset):
     def __init__(self, datadir, split='train', downsample=1.0, is_stack=False, N_vis=-1, semantic_type='vgg', pca=None,
-                 transform_type=None):
+                 transform_scale=None):
         if isinstance(semantic_type, str):
             with suppress(ValueError):
                 semantic_type = ast.literal_eval(semantic_type)
@@ -32,16 +32,11 @@ class BlenderDataset(Dataset):
         self.define_transforms()
 
         self.scene_bbox = torch.tensor(((-1.5, -1.5, -1.5), (1.5, 1.5, 1.5)))
+        if transform_scale:
+            self.scene_bbox *= torch.tensor(transform_scale)
         self.blender2opencv = np.array(((1, 0, 0, 0), (0, -1, 0, 0), (0, 0, -1, 0), (0, 0, 0, 1)))
-        if transform_type:
-            from scipy.spatial.transform import Rotation as R
-            r = R.from_quat(np.roll(transform_type.rot, -1)).as_matrix() @ np.diag(transform_type.scale)
-            r = np.hstack((r, np.expand_dims(np.asarray(transform_type.trans), -1)))
-            r = np.vstack((r, np.array((0, 0, 0, 1))))
-        else:
-            r = None
 
-        self.read_meta(semantic_type, object_transform=r)
+        self.read_meta(semantic_type, object_transform=np.diag((*transform_scale, 1.)) if transform_scale else None)
         self.define_proj_mat()
 
         self.near_far = (2.0, 6.0)
@@ -124,7 +119,7 @@ class BlenderDataset(Dataset):
         for i in tqdm(idxs, desc=f'Loading data {self.split} ({len(idxs)})'):  # img_list:#
             frame = self.meta['frames'][i]
             pose = np.array(frame['transform_matrix']) @ self.blender2opencv
-            c2w = torch.FloatTensor(pose) if object_transform is None else torch.FloatTensor(object_transform @ pose)
+            c2w = torch.FloatTensor(pose if object_transform is None else object_transform @ pose)
             self.poses.append(c2w)
             self.read_semantic(self.read_frame(frame['file_path']), vgg)
 

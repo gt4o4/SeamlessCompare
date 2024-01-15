@@ -11,6 +11,7 @@ import torch
 from einops import rearrange
 from numpy.lib.format import open_memmap
 from pytorch3d.ops import knn_points, ball_query
+from scipy.spatial.transform import Rotation
 from torch.utils.data import TensorDataset, DataLoader
 from tqdm import tqdm, trange
 from trimesh import PointCloud
@@ -29,8 +30,7 @@ class Merger(Evaluator):
         transform_type = getattr(args.transform, Path(args.datadir).stem.replace('scene', 'scan'), None)
         tgt_trans = getattr(args.transform, Path(args.ckpt).stem.removesuffix('_VM').replace('scene', 'scan'), None)
         if tgt_trans and not args.matrix:
-            from scipy.spatial.transform import Rotation as R
-            r = R.from_quat(np.roll(tgt_trans.rot, -1)).as_matrix() @ np.diag(tgt_trans.scale)
+            r = Rotation.from_quat(np.roll(tgt_trans.rot, -1)).as_matrix()
             r = np.hstack((r, np.expand_dims(np.asarray(tgt_trans.trans), -1)))
             r = np.vstack((r, np.array((0, 0, 0, 1))))
             args.matrix = r.ravel().tolist()
@@ -39,10 +39,10 @@ class Merger(Evaluator):
         dataset = dataset_dict[args.dataset_name]
         # if not args.render_only else None
         train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_test, is_stack=False,
-                                semantic_type=args.semantic_type, transform_type=transform_type)
+                                semantic_type=args.semantic_type, transform_scale=transform_type.scale)
         test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_test, is_stack=True,
                                semantic_type=args.semantic_type, pca=getattr(train_dataset, 'pca', None),
-                               transform_type=transform_type)
+                               transform_scale=transform_type.scale)
         super().__init__(self.build_network(), args, test_dataset, train_dataset, pool=pool)
         self.tensorf.args = self.args
         self.optimizer = None
