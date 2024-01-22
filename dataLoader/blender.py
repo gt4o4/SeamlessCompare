@@ -22,7 +22,7 @@ class BlenderDataset(Dataset):
             with suppress(ValueError):
                 semantic_type = ast.literal_eval(semantic_type)
 
-        self.white_bg = False
+        self.white_bg = not split.startswith('train')
         self.pca = pca
         self.N_vis = N_vis
         self.root_dir = datadir
@@ -39,7 +39,7 @@ class BlenderDataset(Dataset):
         self.read_meta(semantic_type, object_transform=np.diag((*transform_scale, 1.)) if transform_scale else None)
         self.define_proj_mat()
 
-        self.near_far = (2.0, 6.0)
+        self.near_far = (2.0, 6.0) if transform_scale is None else (2.0 * transform_scale[0], 6.0 * transform_scale[0])
 
         self.center = torch.mean(self.scene_bbox, axis=0).float().view(1, 1, 3)
         self.radius = (self.scene_bbox[1] - self.center).float().view(1, 1, 3)

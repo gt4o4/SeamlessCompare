@@ -34,7 +34,7 @@ L1_weight_inital = 8e-5
 L1_weight_rest = 4e-5
 rm_weight_mask_thre = 1e-4
 init_density_scale = 0.8
-distance_scale = 78.125
+# distance_scale = 78.125
 
 ## please uncomment following configuration if hope to training on cp model
 #model_name = TensorCP

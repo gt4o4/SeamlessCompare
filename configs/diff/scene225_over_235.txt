@@ -1,0 +1,20 @@
+dataset_name = blender
+datadir = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPH24/data_for_seamlessNeRF/scene235
+expname = scene235_VM_merge
+basedir = ./log
+ckpt = ./log/scene225_VM/scene225_VM.th
+N_vis = 5
+
+transform = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPH24/data_for_seamlessNeRF/scan235_scan225.json
+# matrix = [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+
+render_only = 1
+export_mesh = 1
+render_test = 1
+
+model_name = ColorVMSplit
+density_gain = 3.5
+loss_diff = 2.0
+delta_scale = 0.1
+nSamples = 50000
+batch_size = 16384

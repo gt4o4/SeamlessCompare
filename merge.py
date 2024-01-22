@@ -29,23 +29,35 @@ class Merger(Evaluator):
         self.target = self.build_network(self.args.ckpt)
         transform_type = getattr(args.transform, Path(args.datadir).stem.replace('scene', 'scan'), None)
         tgt_trans = getattr(args.transform, Path(args.ckpt).stem.removesuffix('_VM').replace('scene', 'scan'), None)
+        aabb = self.target.aabb.cpu().numpy()
         if tgt_trans and not args.matrix:
+            # scale = np.diag((0.6666666666666666, 0.6666666666666666, 0.6666666666666666, 1.))
+            scale = np.diag((1., 1., 1., 1.))
+            aabb = np.hstack((aabb, np.ones((2, 1))))
             r = Rotation.from_quat(np.roll(tgt_trans.rot, -1)).as_matrix()
             r = np.hstack((r, np.expand_dims(np.asarray(tgt_trans.trans), -1)))
-            r = np.vstack((r, np.array((0, 0, 0, 1))))
+            r = np.vstack((r, np.array((0, 0, 0, 1)))) @ scale
             args.matrix = r.ravel().tolist()
+            aabb = np.matmul(aabb, r.T)[..., :3]
+        aabb_min = np.min(aabb, axis=0)
+        aabb_max = np.max(aabb, axis=0)
 
         # init dataset
         dataset = dataset_dict[args.dataset_name]
         # if not args.render_only else None
         train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_test, is_stack=False,
                                 semantic_type=args.semantic_type, transform_scale=transform_type.scale)
-        test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_test, is_stack=True,
-                               semantic_type=args.semantic_type, pca=getattr(train_dataset, 'pca', None),
-                               transform_scale=transform_type.scale)
+        test_dataset = dataset(args.datadir, split='merge', downsample=args.downsample_test, is_stack=True,
+                               semantic_type=args.semantic_type, pca=getattr(train_dataset, 'pca', None))
         super().__init__(self.build_network(), args, test_dataset, train_dataset, pool=pool)
         self.tensorf.args = self.args
         self.optimizer = None
+        print('at_least_aabb = ', aabb_min.tolist() + aabb_max.tolist())
+        aabb_ref = self.tensorf.aabb.cpu().numpy()
+        print('cur_aabb = ', aabb_ref[0].tolist() + aabb_ref[1].tolist())
+        aabb_min = np.minimum(aabb_ref[0], aabb_min)
+        aabb_max = np.maximum(aabb_ref[1], aabb_max)
+        print('mix_aabb = ', aabb_min.tolist() + aabb_max.tolist())
 
     def build_network(self, ckpt=None):
         args = self.args
@@ -334,8 +346,11 @@ class Merger(Evaluator):
             total = self.test_dataset.all_rays.shape[0]
             test_idx = cur_idx % total
             with torch.no_grad():
+                old_near_far = self.tensorf.near_far
+                self.tensorf.near_far = (0.001, 6.0)
                 self.eval_sample(test_idx, self.test_dataset.all_rays[test_idx], save_path, f'it{cur_idx:06d}_',
                                  N_samples=-1, white_bg=self.test_dataset.white_bg, save_GT=False)
+                self.tensorf.near_far = old_near_far
 
         return loss
 

@@ -2,9 +2,10 @@ dataset_name = blender
 datadir = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPH24/data_for_seamlessNeRF/scene229
 expname = scene229_VM
 basedir = ./log
+transform = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPH24/data_for_seamlessNeRF/scan253_scan229_v2.json
 
 n_iters = 30000
-batch_size = 12288
+batch_size = 4096
 
 N_voxel_init = 2097156 # 128**3
 N_voxel_final = 27000000 # 300**3

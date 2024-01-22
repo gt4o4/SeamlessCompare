@@ -341,6 +341,7 @@ class Trainer:
                         suppress(Exception) as PSNRs_test:
                     if PSNRs_test:
                         self.logger.info(f'Debugger is active. Skipping suppression. ')
+                    tensorf.save(f'{self.summary_writer.log_dir}/{args.expname}.th')
                     PSNRs_test = evaluator.evaluation(
                         os.fspath(savePath), N_vis=args.N_vis, prtx=f'{iteration:06d}_', N_samples=self.nSamples,
                         white_bg=white_bg, ndc_ray=args.ndc_ray)

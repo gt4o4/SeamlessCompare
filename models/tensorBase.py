@@ -368,9 +368,9 @@ class TensorBase(torch.nn.Module):
 
         sigma = torch.zeros(xyz_sampled.shape[:-1], device=xyz_sampled.device)
         rgb = torch.zeros((*xyz_sampled.shape[:2], self.n_dim), device=xyz_sampled.device)
+        xyz_sampled = self.normalize_coord(xyz_sampled)
 
         if ray_valid.any():
-            xyz_sampled = self.normalize_coord(xyz_sampled)
             sigma_feature = self.compute_densityfeature(xyz_sampled[ray_valid])
 
             validsigma = self.feature2density(sigma_feature)

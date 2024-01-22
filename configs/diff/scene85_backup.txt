@@ -2,7 +2,7 @@ dataset_name = blender
 datadir = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPH24/data_for_seamlessNeRF/scene85_backup
 expname = scene85_backup_VM
 basedir = ./log
-# transform = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPH24/data_for_seamlessNeRF/scan240_scan85_backup.json
+transform = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPH24/data_for_seamlessNeRF/scan240_scan85_backup.json
 
 n_iters = 30000
 batch_size = 16384
