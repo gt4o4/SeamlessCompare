@@ -47,8 +47,11 @@ class Merger(Evaluator):
         # if not args.render_only else None
         train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_test, is_stack=False,
                                 semantic_type=args.semantic_type, transform_scale=transform_type.scale)
-        test_dataset = dataset(args.datadir, split='merge', downsample=args.downsample_test, is_stack=True,
+        test_dataset = dataset(args.datadir, split='video', downsample=args.downsample_test, is_stack=True,
                                semantic_type=args.semantic_type, pca=getattr(train_dataset, 'pca', None))
+        merge_dataset = dataset(args.datadir, split='merge', downsample=args.downsample_test, is_stack=True,
+                                semantic_type=args.semantic_type, pca=getattr(train_dataset, 'pca', None))
+        self.extra_dataset = merge_dataset
         super().__init__(self.build_network(), args, test_dataset, train_dataset, pool=pool)
         self.tensorf.args = self.args
         self.optimizer = None
@@ -122,7 +125,7 @@ class Merger(Evaluator):
 
     @torch.no_grad()
     def sample_filter_dataset(self, pts_path, chunk=8192):
-        rays = torch.concat((self.alt_dataset.all_rays.view(-1, 6), self.test_dataset.all_rays.view(-1, 6)), dim=0)
+        rays = torch.concat((self.alt_dataset.all_rays.view(-1, 6), self.extra_dataset.all_rays.view(-1, 6)), dim=0)
         N_rays_all = rays.shape[0]
         cnt = count()
         aval_id = []
@@ -344,7 +347,7 @@ class Merger(Evaluator):
 
             cur_idx = next(batch_counter)
             total = self.test_dataset.all_rays.shape[0]
-            test_idx = cur_idx % total
+            test_idx = (cur_idx // 2) % total
             with torch.no_grad():
                 old_near_far = self.tensorf.near_far
                 self.tensorf.near_far = (0.001, 6.0)
@@ -365,7 +368,7 @@ class Merger(Evaluator):
             self.export_mesh()
         pts = self.export_pointcloud()
         pts, mask, dists = self.generate_grad(pts)
-        if self.args.export_mesh:
+        if self.args.render_test:
             self.render_test()
         self.poisson_editing(pts, mask, dists)
 

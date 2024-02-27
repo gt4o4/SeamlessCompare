@@ -10,11 +10,11 @@ transform = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPH24/data_for_seamles
 
 render_only = 1
 export_mesh = 1
-render_test = 1
+render_test = 0
 
 model_name = ColorVMSplit
 density_gain = 2.0
 loss_diff = 2.0
-delta_scale = 0.1
+delta_scale = 0.5
 nSamples = 50000
 batch_size = 16384

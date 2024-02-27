@@ -22,7 +22,8 @@ class BlenderDataset(Dataset):
             with suppress(ValueError):
                 semantic_type = ast.literal_eval(semantic_type)
 
-        self.white_bg = not split.startswith('train')
+        # self.white_bg = not split.startswith('train')
+        self.white_bg = False
         self.pca = pca
         self.N_vis = N_vis
         self.root_dir = datadir
