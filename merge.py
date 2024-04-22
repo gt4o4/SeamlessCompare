@@ -130,7 +130,7 @@ class Merger(Evaluator):
         aval_rep = []
         nSamples = cal_n_samples(self.tensorf.gridSize.cpu().numpy(), self.tensorf.step_ratio)
         nSamples = min(self.args.nSamples, nSamples / self.args.delta_scale)
-        with open(pts_path.with_suffix('.bin'), mode='wb') as f:
+        with open(pts_path, mode='wb') as f:
             for chunk_idx in trange(N_rays_all // chunk + int(N_rays_all % chunk > 0), desc='sample_filter_dataset'):
                 rays_chunk = rays[chunk_idx * chunk:(chunk_idx + 1) * chunk].to(self.device)
                 xyz_sampled, z_vals, dists, viewdirs, ray_valid = self.tensorf.sample_and_filter_rays(
@@ -148,12 +148,10 @@ class Merger(Evaluator):
             del rays
             self.logger.warn('sample_filter_dataset done. Concatenating files...')
             aval_id = torch.cat(aval_id, dim=0)
-            id_cnt = aval_id.sum().item()
             ind, = torch.nonzero(aval_id, as_tuple=True)
             aval_id = torch.stack((ind, aval_id[ind]), dim=-1)
             aval_rep = torch.cat(aval_rep, dim=0)
-        aval_pts = np.memmap(pts_path.with_suffix('.bin'), dtype=np.half, shape=(id_cnt, 6))
-        return torch.from_numpy(aval_pts), aval_id, aval_rep
+        return aval_id, aval_rep
 
     @torch.no_grad()
     def load_all_query_pts(self, pts_path: Path, pts):
@@ -179,22 +177,22 @@ class Merger(Evaluator):
         return all_query_pts
 
     @torch.no_grad()
-    def load_aval_pts(self, pts_path: Path):
-        pts_path = pts_path.with_stem('aval_pts')
-        pts_bin = pts_path.with_suffix('.bin')
-        if pts_bin.exists():
-            self.logger.info('Loading aval_pts from cached...')
-            with suppress(Exception):
-                aval_id = torch.from_numpy(open_memmap(pts_path.with_stem('aval_id'), mode='r'))
-                aval_rep = torch.from_numpy(open_memmap(pts_path.with_stem('aval_rep'), mode='r'))
-                id_cnt = torch.sum(aval_id[:, 1]).item()
-                aval_pts = torch.from_numpy(np.memmap(pts_bin, mode='r', dtype=np.half, shape=(id_cnt, 6)))
-                return aval_pts, aval_id, aval_rep
+    def load_aval_pts(self, pts_path: Path, save_bin=False):
+        pts_bin = (pts_path := pts_path.with_stem('aval_pts')).with_suffix('.bin')
+        if (pts_path := pts_path.with_stem('aval_rep')).exists():
+            self.logger.info('Loading aval_rep from cached...')
+            aval_rep = torch.from_numpy(open_memmap(pts_path, mode='r'))
+            aval_id = torch.from_numpy(open_memmap(pts_path.with_stem('aval_id'), mode='r'))
+        else:
+            self.logger.warn('Calc aval_rep using CUDA...')
+            aval_id, aval_rep = self.sample_filter_dataset(pts_bin if save_bin else os.devnull, self.args.batch_size)
+            np.save(pts_path, aval_rep.numpy())
+            np.save(pts_path.with_stem('aval_id'), aval_id.numpy())
 
-        self.logger.warn('Calc aval_pts using CUDA...')
-        aval_pts, aval_id, aval_rep = self.sample_filter_dataset(pts_path, self.args.batch_size)
-        np.save(pts_path.with_stem('aval_id'), aval_id.numpy())
-        np.save(pts_path.with_stem('aval_rep'), aval_rep.numpy())
+        aval_pts = torch.from_numpy(
+            np.memmap(pts_bin, mode='r', dtype=np.half, shape=(torch.sum(aval_id[:, 1]).item(), 6))
+        ) if pts_bin.exists() else None
+
         return aval_pts, aval_id, aval_rep
 
     @torch.no_grad()
