@@ -4,7 +4,6 @@ from contextlib import suppress
 from itertools import repeat, chain, count
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 import numpy as np
 import torch
@@ -127,21 +126,19 @@ class Merger(Evaluator):
     def sample_filter_dataset(self, pts_path, chunk=8192):
         rays = torch.concat((self.alt_dataset.all_rays.view(-1, 6), self.extra_dataset.all_rays.view(-1, 6)), dim=0)
         N_rays_all = rays.shape[0]
-        cnt = count()
         aval_id = []
         aval_rep = []
-        prefix = f'{Path(pts_path).stem}_'
         nSamples = cal_n_samples(self.tensorf.gridSize.cpu().numpy(), self.tensorf.step_ratio)
         nSamples = min(self.args.nSamples, nSamples / self.args.delta_scale)
-        with TemporaryDirectory(dir=os.path.dirname(pts_path)) as tmpdir:
+        with open(pts_path.with_suffix('.bin'), mode='wb') as f:
             for chunk_idx in trange(N_rays_all // chunk + int(N_rays_all % chunk > 0), desc='sample_filter_dataset'):
                 rays_chunk = rays[chunk_idx * chunk:(chunk_idx + 1) * chunk].to(self.device)
                 xyz_sampled, z_vals, dists, viewdirs, ray_valid = self.tensorf.sample_and_filter_rays(
                     rays_chunk, is_train=False, ndc_ray=self.args.ndc_ray, N_samples=nSamples)
                 app_mask, app_alpha = self.filter_pts(xyz_sampled, dists, ray_valid)
                 if app_mask.any():
-                    np.save(os.path.join(tmpdir, f'{prefix}{next(cnt)}.npy'),
-                            torch.concat((xyz_sampled[app_mask], viewdirs[app_mask]), dim=-1).cpu().numpy())
+                    chunk_pts = torch.concat((xyz_sampled[app_mask], viewdirs[app_mask]), dim=-1).to(dtype=torch.half)
+                    chunk_pts.cpu().numpy().tofile(f)
                     _, ind = app_alpha.max(dim=-1)
                     chunk_mask = app_mask.any(dim=-1)
                     ind = ind[chunk_mask]
@@ -155,10 +152,7 @@ class Merger(Evaluator):
             ind, = torch.nonzero(aval_id, as_tuple=True)
             aval_id = torch.stack((ind, aval_id[ind]), dim=-1)
             aval_rep = torch.cat(aval_rep, dim=0)
-            aval_pts = [open_memmap(os.path.join(tmpdir, f'{prefix}{cur}.npy'), mode='r') for cur in range(next(cnt))]
-            aval_out = open_memmap(pts_path, mode='w+', shape=(id_cnt, 6), dtype=np.float32)
-            aval_pts = np.concatenate(aval_pts, axis=0, out=aval_out)
-        aval_out.flush()
+        aval_pts = np.memmap(pts_path.with_suffix('.bin'), dtype=np.half, shape=(id_cnt, 6))
         return torch.from_numpy(aval_pts), aval_id, aval_rep
 
     @torch.no_grad()
@@ -187,12 +181,14 @@ class Merger(Evaluator):
     @torch.no_grad()
     def load_aval_pts(self, pts_path: Path):
         pts_path = pts_path.with_stem('aval_pts')
-        if pts_path.exists():
+        pts_bin = pts_path.with_suffix('.bin')
+        if pts_bin.exists():
             self.logger.info('Loading aval_pts from cached...')
             with suppress(Exception):
-                aval_pts = torch.from_numpy(open_memmap(pts_path, mode='r'))
                 aval_id = torch.from_numpy(open_memmap(pts_path.with_stem('aval_id'), mode='r'))
                 aval_rep = torch.from_numpy(open_memmap(pts_path.with_stem('aval_rep'), mode='r'))
+                id_cnt = torch.sum(aval_id[:, 1]).item()
+                aval_pts = torch.from_numpy(np.memmap(pts_bin, mode='r', dtype=np.half, shape=(id_cnt, 6)))
                 return aval_pts, aval_id, aval_rep
 
         self.logger.warn('Calc aval_pts using CUDA...')
@@ -283,7 +279,7 @@ class Merger(Evaluator):
 
         return loss
 
-    def compute_diff_loss2(self, sigma_feature: DensityFeature, rgb, orig_rgb, bit_mask):
+    def compute_diff_loss_mse(self, sigma_feature: DensityFeature, rgb, orig_rgb, bit_mask):
         pts = sigma_feature.pts
         mask = pts.valid_mask
         diff = rgb[:, 0:1, :] - rgb[:, 1:, :]
