@@ -1,80 +1,80 @@
+import argparse
 import logging
 import os
 import resource
 from contextlib import suppress
 
 
-def config_parser(cmd=None):
+class ConfigParser(argparse.Namespace):
     import configargparse
-    import train
-    import merge
 
-    parser = configargparse.ArgumentParser()
-    subparsers = parser.add_subparsers(dest='command', help='sub-command help')
-    train.config_parser(subparsers.add_parser('train', aliases=['test']))
-    merge.config_parser(subparsers.add_parser('merge'))
+    class CommandParser(configargparse.ArgumentParser):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.command = None
 
-    return parser.parse_args(cmd)
+        def acton(self, cfg):
+            self.command = cfg(self)
+            return self
 
-
-def command(args):
-    print(args)
-    # match args.command:
-    #     case 'train' | 'test':
-    #         import train
-    #         func = train.main
-    #     case 'merge':
-    #         import merge
-    #         func = merge.main
-    #     case _:
-    #         raise ValueError(f'Unknown command: {args.command}')
-    if args.command == 'train' or args.command == 'test':
+    def __init__(self, cmd=None):
         import train
-        func = train.main
-    elif args.command == 'merge':
         import merge
-        func = merge.main
-    else:
-        raise ValueError(f'Unknown command: {args.command}')
-    return func(args)
+        import buildcfg
+
+        super().__init__()
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers(dest='command', help='sub-command help', required=True,
+                                           parser_class=self.CommandParser)
+        subparsers.add_parser('train', aliases=['test']).acton(train.ConfigCommand)
+        subparsers.add_parser('merge').acton(merge.ConfigCommand)
+        subparsers.add_parser('buildcfg', aliases=['cfg']).acton(buildcfg.ConfigCommand)
+
+        args, argv = parser.parse_known_args(cmd, namespace=self)
+        cmd_parser = subparsers.choices.get(args.command)
+        args.command = cmd_parser.command
 
 
-# A function to set up the running environment for the training
-def setup_environment(cudaMallocAsync=True):
-    try:
-        resource.setrlimit(resource.RLIMIT_NOFILE, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
-    except ValueError:
-        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-        if soft < hard:
-            resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
+class SetupEnvironment:
+    def __call__(self, args: ConfigParser):
+        print(args)
+        # if argv := args.argv:
+        #     print('unrecognized arguments: %s' % ' '.join(argv), file=sys.stderr)
+        return args.command(args)
 
-    if cudaMallocAsync:
-        os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'backend:cudaMallocAsync'
+    # A function to set up the running environment for the training
+    def __init__(self, cudaMallocAsync=True):
+        try:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
+        except ValueError:
+            soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+            if soft < hard:
+                resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
 
-    import numpy as np
-    import torch
+        if cudaMallocAsync:
+            os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'backend:cudaMallocAsync'
 
-    with suppress(ImportError):
-        from torch.backends import cuda, cudnn
-        # The flag below controls whether to allow TF32 on matmul. This flag defaults to False
-        # in PyTorch 1.12 and later.
-        cuda.matmul.allow_tf32 = True
-        # The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
-        cudnn.allow_tf32 = True
+        import numpy as np
+        import torch
 
-    torch.set_default_dtype(torch.float32)
-    if not torch.cuda.is_available():
-        logging.getLogger(__name__).warning('CUDA is not available. Using CPU instead.')
+        with suppress(ImportError):
+            from torch.backends import cuda, cudnn
+            # The flag below controls whether to allow TF32 on matmul. This flag defaults to False
+            # in PyTorch 1.12 and later.
+            cuda.matmul.allow_tf32 = True
+            # The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
+            cudnn.allow_tf32 = True
 
-    # Set the seed for generating random numbers.
-    np.random.seed(np.bitwise_xor(*np.atleast_1d(np.asarray(torch.seed(), dtype=np.uint64)).view(np.uint32)).item())
+        torch.set_default_dtype(torch.float32)
+        if not torch.cuda.is_available():
+            logging.getLogger(__name__).warning('CUDA is not available. Using CPU instead.')
 
-    import pyximport
-    pyximport.install()
+        # Set the seed for generating random numbers.
+        np.random.seed(np.bitwise_xor(*np.atleast_1d(np.asarray(torch.seed(), dtype=np.uint64)).view(np.uint32)).item())
 
-    return command
+        import pyximport
+        pyximport.install()
 
 
 if __name__ == "__main__":
-    setup_environment()(config_parser())
-    # command(config_parser())
+    SetupEnvironment()(ConfigParser())  # command(config_parser())

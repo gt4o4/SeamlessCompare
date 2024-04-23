@@ -154,12 +154,12 @@ class Merger(Evaluator):
         return aval_id, aval_rep
 
     @torch.no_grad()
-    def load_all_query_pts(self, pts_path: Path, pts):
+    def load_all_query_pts(self, pts_path: Path, pts, skip_check=False):
         if pts_path.exists():
             self.logger.info('Loading all_query_pts from cached into GPU...')
             with suppress(Exception):
                 all_query_pts = torch.from_numpy(open_memmap(pts_path, mode='r')).to(self.device)
-                if torch.allclose(pts, all_query_pts.view(-1, 7, 3)[:, 0]):
+                if skip_check or torch.allclose(pts, all_query_pts.view(-1, 7, 3)[:, 0]):
                     return all_query_pts
             self.logger.warn('Cached query_pts mismatch. Regenerating...')
             parent = pts_path.parent
@@ -367,52 +367,56 @@ class Merger(Evaluator):
         self.poisson_editing(pts, mask, dists)
 
 
-def config_parser(parser):
-    from dataLoader import dataset_dict
-    from models import MODEL_ZOO, TransformFile
+class ConfigCommand:
+    def __init__(self, parser):
+        super().__init__()
 
-    parser.add_argument('--config', is_config_file=True, help='config file path')
-    parser.add_argument("--expname", type=str, help='experiment name')
-    parser.add_argument("--basedir", type=str, default='./log', help='where to store ckpts and logs')
-    parser.add_argument("--datadir", type=str, default='./data/llff/fern', help='input data directory')
+        from dataLoader import dataset_dict
+        from models import MODEL_ZOO, TransformFile
 
-    parser.add_argument('--downsample_test', type=float, default=1.0)
-    parser.add_argument("--transform", type=TransformFile.load, help='input transform')
-    parser.add_argument('--matrix', type=float, nargs='+', default=())
-    parser.add_argument("--lr_basis", type=float, default=1e-3, help='learning rate')
-    parser.add_argument("--batch_size", type=int, default=8192)
+        parser.add_argument('--config', is_config_file=True, help='config file path')
+        parser.add_argument("--expname", type=str, help='experiment name')
+        parser.add_argument("--basedir", type=str, default='./log', help='where to store ckpts and logs')
+        parser.add_argument("--datadir", type=str, default='./data/llff/fern', help='input data directory')
 
-    parser.add_argument('--model_name', type=MODEL_ZOO.get, default='TensorVMSplit', choices=MODEL_ZOO)
-    parser.add_argument('--dataset_name', type=str, default='blender', choices=dataset_dict.keys())
+        parser.add_argument('--downsample_test', type=float, default=1.0)
+        parser.add_argument("--transform", type=TransformFile.load, help='input transform')
+        parser.add_argument('--matrix', type=float, nargs='+', default=())
+        parser.add_argument("--lr_basis", type=float, default=1e-3, help='learning rate')
+        parser.add_argument("--batch_size", type=int, default=8192)
 
-    # network decoder
-    parser.add_argument("--semantic_type", type=str, default='None', help='semantic type')
+        parser.add_argument('--model_name', type=MODEL_ZOO.get, default='TensorVMSplit', choices=MODEL_ZOO)
+        parser.add_argument('--dataset_name', type=str, default='blender', choices=dataset_dict.keys())
 
-    parser.add_argument("--ckpt", type=str, default=None, help='specific weights npy file to reload for coarse network')
-    parser.add_argument("--render_only", action="store_true")
-    parser.add_argument("--render_test", action="store_true")
-    parser.add_argument("--render_train", action="store_true")
-    parser.add_argument("--render_path", action="store_true")
-    parser.add_argument("--export_mesh", action="store_true")
+        # network decoder
+        parser.add_argument("--semantic_type", type=str, default='None', help='semantic type')
 
-    # rendering options
-    parser.add_argument('--ndc_ray', type=int, default=0)
+        parser.add_argument("--ckpt", type=str, default=None,
+                            help='specific weights npy file to reload for coarse network')
+        parser.add_argument("--render_only", action="store_true")
+        parser.add_argument("--render_test", action="store_true")
+        parser.add_argument("--render_train", action="store_true")
+        parser.add_argument("--render_path", action="store_true")
+        parser.add_argument("--export_mesh", action="store_true")
 
-    # logging/saving options
-    parser.add_argument("--N_vis", type=int, default=5, help='N images to vis')
+        # rendering options
+        parser.add_argument('--ndc_ray', type=int, default=0)
 
-    # logging/saving options
-    parser.add_argument("--render_gap", type=float, help='render step size gap for target')
-    parser.add_argument("--density_gain", type=float, default=1, help='density gain for source')
-    parser.add_argument("--delta_scale", type=float, default=1, help='weight for loss_diff')
-    parser.add_argument('--nSamples', type=int, default=1e6, help='sample point each ray, pass 1e6 if automatic adjust')
+        # logging/saving options
+        parser.add_argument("--N_vis", type=int, default=5, help='N images to vis')
 
-    # loss weight
-    parser.add_argument("--loss_diff", type=float, help='weight for loss_diff')
+        # logging/saving options
+        parser.add_argument("--render_gap", type=float, help='render step size gap for target')
+        parser.add_argument("--density_gain", type=float, default=1, help='density gain for source')
+        parser.add_argument("--delta_scale", type=float, default=1, help='weight for loss_diff')
+        parser.add_argument('--nSamples', type=int, default=1e6,
+                            help='sample point each ray, pass 1e6 if automatic adjust')
 
+        # loss weight
+        parser.add_argument("--loss_diff", type=float, help='weight for loss_diff')
 
-def main(args):
-    assert args.render_only
-    with ThreadPool() as pool:
-        merger = Merger(args, pool)
-        merger.merge()
+    def __call__(self, args):
+        assert args.render_only
+        with ThreadPool() as pool:
+            merger = Merger(args, pool)
+            merger.merge()

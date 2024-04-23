@@ -2,7 +2,7 @@ dataset_name = blender
 datadir = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPH24/data_for_seamlessNeRF/scene240
 expname = scene240_VM_merge
 basedir = ./log
-ckpt = ./log/scene85_backup_VM/scene85_backup_VM.th
+ckpt = ./log/scene240_VM_merge/scene85_backup_VM.th
 N_vis = 5
 
 transform = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPH24/data_for_seamlessNeRF/scan240_scan85_backup.json
