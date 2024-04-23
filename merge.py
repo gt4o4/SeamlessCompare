@@ -26,12 +26,10 @@ class Merger(Evaluator):
         self.args = args
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.target = self.build_network(self.args.ckpt)
-        transform_type = getattr(args.transform, Path(args.datadir).stem.replace('scene', 'scan'), None)
-        tgt_trans = getattr(args.transform, Path(args.ckpt).stem.removesuffix('_VM').replace('scene', 'scan'), None)
+        transform_type, tgt_trans = args.transform.get(Path(args.datadir).stem, Path(args.ckpt).stem)
         aabb = self.target.aabb.cpu().numpy()
         if tgt_trans and not args.matrix:
-            # scale = np.diag((0.6666666666666666, 0.6666666666666666, 0.6666666666666666, 1.))
-            scale = np.diag((1., 1., 1., 1.))
+            scale = np.diag((1., 1., 1., 1.))  # scale = np.diag((0.67, 0.67, 0.67, 1.))
             aabb = np.hstack((aabb, np.ones((2, 1))))
             r = Rotation.from_quat(np.roll(tgt_trans.rot, -1)).as_matrix()
             r = np.hstack((r, np.expand_dims(np.asarray(tgt_trans.trans), -1)))
@@ -380,8 +378,11 @@ class ConfigCommand:
         parser.add_argument("--datadir", type=str, default='./data/llff/fern', help='input data directory')
 
         parser.add_argument('--downsample_test', type=float, default=1.0)
-        parser.add_argument("--transform", type=TransformFile.load, help='input transform')
-        parser.add_argument('--matrix', type=float, nargs='+', default=())
+
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument("--transform", type=TransformFile.load, help='input transform')
+        group.add_argument('--matrix', type=float, nargs='+', default=())
+
         parser.add_argument("--lr_basis", type=float, default=1e-3, help='learning rate')
         parser.add_argument("--batch_size", type=int, default=8192)
 

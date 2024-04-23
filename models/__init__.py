@@ -28,6 +28,9 @@ class TransformFile(SimpleNamespace):
     def __init__(self, d):
         super().__init__(**d)
 
+    def get(self, *args):
+        return [getattr(self, item.removesuffix('_VM').replace('scene', 'scan'), None) for item in args]
+
 
 MODEL_ZOO = ClassCollection(TensorVM, TensorCP, TensorVMSplit, ColorVMSplit)
 LOSS_ZOO = ClassCollection(PLTLoss)

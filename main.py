@@ -1,7 +1,6 @@
 import argparse
 import logging
 import os
-import resource
 from contextlib import suppress
 
 
@@ -12,6 +11,7 @@ class ConfigParser(argparse.Namespace):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.command = None
+            self.argv = None
 
         def acton(self, cfg):
             self.command = cfg(self)
@@ -31,26 +31,23 @@ class ConfigParser(argparse.Namespace):
         subparsers.add_parser('buildcfg', aliases=['cfg']).acton(buildcfg.ConfigCommand)
 
         args, argv = parser.parse_known_args(cmd, namespace=self)
-        cmd_parser = subparsers.choices.get(args.command)
-        args.command = cmd_parser.command
+        self.command: str | ConfigParser.CommandParser = subparsers.choices[args.command]
+        self.command.argv = argv
 
 
 class SetupEnvironment:
     def __call__(self, args: ConfigParser):
-        print(args)
-        # if argv := args.argv:
-        #     print('unrecognized arguments: %s' % ' '.join(argv), file=sys.stderr)
-        return args.command(args)
+        command_parser = args.command
+        del args.command
+        if argv := command_parser.argv:
+            try:
+                return command_parser.command(args, argv=argv)
+            except TypeError:
+                command_parser.error('unrecognized arguments: %s' % ' '.join(argv))
+        return command_parser.command(args)
 
     # A function to set up the running environment for the training
     def __init__(self, cudaMallocAsync=True):
-        try:
-            resource.setrlimit(resource.RLIMIT_NOFILE, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
-        except ValueError:
-            soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-            if soft < hard:
-                resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
-
         if cudaMallocAsync:
             os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'backend:cudaMallocAsync'
 
@@ -64,6 +61,8 @@ class SetupEnvironment:
             cuda.matmul.allow_tf32 = True
             # The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
             cudnn.allow_tf32 = True
+            # The performance might improve if the benchmarking feature is enabled
+            cudnn.benchmark = True
 
         torch.set_default_dtype(torch.float32)
         if not torch.cuda.is_available():
