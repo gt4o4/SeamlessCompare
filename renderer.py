@@ -5,9 +5,8 @@ import numpy as np
 import torch
 from einops import rearrange
 
-OctreeRender_trilinear_fast_ret_t = namedtuple('OctreeRender_trilinear_fast_ret_t',
-                                               ('rgbs', 'alphas', 'depth_map', 'weights', 'uncertainties'),
-                                               defaults=(None, None, None, None, None))
+RenderT = namedtuple('OctreeRender_trilinear_fast_ret_T', ('rgbs', 'alphas', 'depth_map', 'weights', 'uncertainties'),
+                     defaults=(None, None, None, None, None))
 
 
 def OctreeRender_trilinear_fast(rays, tensorf, chunk=4096, N_samples=-1, ndc_ray=False, white_bg=True, is_train=False,
@@ -27,7 +26,7 @@ def OctreeRender_trilinear_fast(rays, tensorf, chunk=4096, N_samples=-1, ndc_ray
         rgbs.append(rgb_map)
         depth_maps.append(depth_map)
 
-    return OctreeRender_trilinear_fast_ret_t(rgbs=torch.cat(rgbs), depth_map=torch.cat(depth_maps))
+    return RenderT(rgbs=torch.cat(rgbs), depth_map=torch.cat(depth_maps))
 
 
 def visualize_rgb(depth_map, rgb_map, savePath, prtx, apply=lambda f, args: f(*args)):

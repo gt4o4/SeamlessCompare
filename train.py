@@ -50,12 +50,17 @@ class SimpleSampler:
 
     def getbatch(self, device):
         ids = self.nextids()
-        if self.rgb_shape is not None:
-            sems = torch.from_numpy(np.stack(np.unravel_index(ids, self.rgb_shape), axis=-1)).to(device)
-            sems = self.dataset.sample_sems(sems)
-            return self.dataset.all_rays[ids].to(device), self.dataset.all_rgbs[ids].to(device), sems
+        rays = self.dataset.all_rays[ids].to(device)
+        rgbs = self.dataset.all_rgbs[ids].to(device)
+        if rgbs.shape[-1] == 4:
+            white_bg = torch.randint(0, 2, size=(*rgbs.shape[:-1], 3), device=rgbs.device, dtype=torch.bool)
+            rgbs = rgbs[..., :3] * rgbs[..., -1:] + (1 - rgbs[..., -1:]) * white_bg
         else:
-            return self.dataset.all_rays[ids].to(device), self.dataset.all_rgbs[ids].to(device)
+            white_bg = self.dataset.white_bg
+        sems = (self.dataset.sample_sems(
+            torch.from_numpy(np.stack(np.unravel_index(ids, self.rgb_shape), axis=-1)).to(device)),
+        ) if self.rgb_shape is not None else ()
+        return white_bg, rays, rgbs, *sems
 
 
 class Trainer:
@@ -189,9 +194,8 @@ class Trainer:
 
         return tensorf
 
-    def train_one_batch(self, tensorf, iteration, rays_train, *batch_gt):
+    def train_one_batch(self, tensorf, iteration, white_bg, rays_train, *batch_gt):
         args = self.args
-        white_bg = self.train_dataset.white_bg
         ndc_ray = args.ndc_ray
         n_palette = getattr(tensorf.renderModule, 'n_palette', 1)
         palette = (render.palette for render in tensorf.renderModule) if n_palette > 1 else (
@@ -307,8 +311,8 @@ class Trainer:
 
         pbar = trange(args.n_iters, miniters=args.progress_refresh_rate, file=sys.stdout)
         for iteration in pbar:
-            batch_train = self.trainingSampler.getbatch(device=self.device)
-            loss, reg_terms = self.train_one_batch(tensorf, iteration, *batch_train)
+            mask_bg, rays_train, *batch_train = self.trainingSampler.getbatch(device=self.device)
+            loss, reg_terms = self.train_one_batch(tensorf, iteration, mask_bg, rays_train, *batch_train)
             PSNRs.append(-10.0 * np.log(loss) / np.log(10.0))
             for k, v in reg_terms.items():
                 REGs[k].append(v)

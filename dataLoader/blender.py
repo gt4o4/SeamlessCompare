@@ -22,8 +22,7 @@ class BlenderDataset(Dataset):
             with suppress(ValueError):
                 semantic_type = ast.literal_eval(semantic_type)
 
-        # self.white_bg = not split.startswith('train')
-        self.white_bg = False
+        self.white_bg = False  # self.white_bg = not split.startswith('train')
         self.pca = pca
         self.N_vis = N_vis
         self.root_dir = datadir
@@ -61,11 +60,11 @@ class BlenderDataset(Dataset):
             img = img.resize(self.img_wh, Image.LANCZOS)
 
         img = self.transform(img)  # (4, h, w)
-        if img.size(0) == 4:
-            if self.white_bg:
-                img = img[:3] * img[-1:] + (1 - img[-1:])  # blend A to RGB
-            else:
-                img = img[:3] * img[-1:]  # blend A to RGB
+        # if img.size(0) == 4:
+        #     if self.white_bg:
+        #         img = img[:3] * img[-1:] + (1 - img[-1:])  # blend A to RGB
+        #     else:
+        #         img = img[:3] * img[-1:]  # blend A to RGB
 
         # img, = kornia.filters.laplacian(img[None], 3)
         self.all_rgbs.append(rearrange(img, 'c h w -> (h w) c'))  # RGBA
@@ -134,8 +133,8 @@ class BlenderDataset(Dataset):
             # self.all_depth = torch.cat(self.all_depth, 0)  # (len(self.meta['frames])*h*w, 3)
         else:
             self.all_rays = torch.stack(self.all_rays, 0)  # (len(self.meta['frames]),h*w, 3)
-            self.all_rgbs = torch.stack(
-                self.all_rgbs, 0).reshape(-1, *self.img_wh[::-1], 3)  # (len(self.meta['frames]),h,w,3)
+            # (len(self.meta['frames]),h,w,3)
+            self.all_rgbs = torch.stack(self.all_rgbs, 0).reshape(len(self.meta['frames']), *self.img_wh[::-1], -1)
             # self.all_masks = torch.stack(self.all_masks, 0).reshape(-1,*self.img_wh[::-1])  # (len(self.meta['frames]),h,w,3)
         if len(self.all_sems):
             self.all_sems = torch.cat(self.all_sems, 0)

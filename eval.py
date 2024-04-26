@@ -62,7 +62,10 @@ class Evaluator:
         gt_vis = []
 
         if len(test_dataset.all_rgbs):
-            gt_rgb = test_dataset.all_rgbs[idx].view(H, W, 3)
+            gt_rgb = test_dataset.all_rgbs[idx].view(H, W, -1)
+            if gt_rgb.shape[-1] == 4:
+                gt_rgb = gt_rgb[..., :3] * gt_rgb[..., -1:] + torch.as_tensor(white_bg, device=gt_rgb.device) * (
+                        1 - gt_rgb[..., -1:])
             if save_GT:
                 gt_vis.append(gt_rgb)
             loss = torch.mean((rgb_map - gt_rgb) ** 2)
