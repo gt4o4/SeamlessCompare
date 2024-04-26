@@ -8,15 +8,22 @@ from models.tensoRF import TensorVM, TensorCP, TensorVMSplit
 
 
 class ClassCollection(dict):
+    class CCMeta(type):
+        def __str__(self):
+            return self.__name__
+
+        def __repr__(self):
+            return self.__qualname__
+
     def __init__(self, *classes):
         super().__init__((cls.__name__, cls) for cls in classes)
         self.aliases = {alias: cls for cls in classes for alias in getattr(cls, '_aliases', ())}
 
     def __contains__(self, item):
-        return item in self.keys() or item in self.values()
+        return str(item) in self.keys() or item in self.values()
 
     def get(self, name):
-        return super().get(name, self.aliases.get(name, name))
+        return self.CCMeta(name, (super().get(name, self.aliases.get(name, type(name, (), {}))),), {})
 
 
 class TransformFile(SimpleNamespace):

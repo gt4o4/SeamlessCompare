@@ -459,7 +459,7 @@ class ConfigCommand:
         parser.add_argument("--accumulate_decay", type=float, default=0.998)
         parser.add_argument("--fea2denseAct", type=str, default='softplus')
         parser.add_argument('--ndc_ray', type=int, default=0)
-        parser.add_argument('--nSamples', type=int, default=1e6,
+        parser.add_argument('--nSamples', type=int, default=int(1e6),
                             help='sample point each ray, pass 1e6 if automatic adjust')
         parser.add_argument('--step_ratio', type=float, default=0.5)
 

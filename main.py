@@ -39,12 +39,13 @@ class SetupEnvironment:
     def __call__(self, args: ConfigParser):
         command_parser = args.command
         del args.command
-        if argv := command_parser.argv:
-            try:
-                return command_parser.command(args, argv=argv)
-            except TypeError:
+        argv = command_parser.argv
+        try:
+            return command_parser.command(args, argv=argv)
+        except TypeError:
+            if argv:
                 command_parser.error('unrecognized arguments: %s' % ' '.join(argv))
-        return command_parser.command(args)
+            return command_parser.command(args)
 
     # A function to set up the running environment for the training
     def __init__(self, cudaMallocAsync=True):

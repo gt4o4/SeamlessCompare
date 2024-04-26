@@ -30,6 +30,9 @@ class LossBase:
     def apply_weights(self, reg_term):
         return sum(getattr(self.reg_weights, k) * v for k, v in reg_term.items())
 
+    def __str__(self):
+        return self.__class__.__name__
+
 
 class PLTLoss(LossBase):
     RegWeights_t = namedtuple('RegWeights_PLT_t', 'E_opaque PD BLACK', defaults=(.1, 1., -1. / 375))
