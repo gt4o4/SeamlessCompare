@@ -1,19 +1,7 @@
-import tempfile
-from io import StringIO
 from pathlib import Path
-
-import configargparse
 
 import merge
 import train
-
-
-def get_parser_cfg(parser, args):
-    with tempfile.NamedTemporaryFile(mode='r') as f, StringIO() as s:
-        parser.write_config_file(args, (f.name,))
-        print('[Merge Configuration File]', file=s)
-        print(f.read(), file=s)
-        return s.getvalue()
 
 
 class ConfigCommand:
@@ -24,9 +12,9 @@ class ConfigCommand:
         self.parser = parser
 
     def __call__(self, args):
-        source_cmd = train.ConfigCommand(parser := configargparse.ArgumentParser())
+        source_cmd = train.ConfigCommand(parser := type(self.parser)())
         source_args = parser.parse_args(args=(), config_file_contents=args.source.read_text())
         # train_cmd(train_args)
         merge_args, argv = self.parser.parse_known_args(
-            args=(), config_file_contents=get_parser_cfg(parser, source_args))
-        print(get_parser_cfg(self.parser, merge_args))
+            args=(), config_file_contents=parser.get_parser_cfg(source_args, '[Train Configuration File]'))
+        print(self.parser.get_parser_cfg(merge_args, '[Merge Configuration File]'))

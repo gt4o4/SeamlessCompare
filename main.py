@@ -1,7 +1,21 @@
 import argparse
 import logging
 import os
-from contextlib import suppress
+from contextlib import suppress, nullcontext
+from io import StringIO
+from typing import Union, Text
+
+
+class TextIO(str):
+    def __new__(cls, *args, **kw):
+        obj = super().__new__(cls, *args, **kw)
+        obj.file = StringIO()
+        print(obj, file=obj.file)
+        return obj
+
+    @staticmethod
+    def open(s, *args, **kwargs):
+        return nullcontext(s.file) if isinstance(s, TextIO) else open(s, *args, **kwargs)
 
 
 class ConfigParser(argparse.Namespace):
@@ -9,9 +23,16 @@ class ConfigParser(argparse.Namespace):
 
     class CommandParser(configargparse.ArgumentParser):
         def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
+            self.config_dict = dict()
             self.command = None
             self.argv = None
+            super().__init__(*args, config_file_open_func=TextIO.open, **kwargs)
+
+        def get_parser_cfg(self, args, header):
+            s: Union[TextIO, Text] = TextIO(header)
+            with s.file as f:
+                self.write_config_file(args, (s,))
+                return f.getvalue()
 
         def acton(self, cfg):
             self.command = cfg(self)
