@@ -386,7 +386,7 @@ class ConfigCommand:
         parser.add_argument("--lr_basis", type=float, default=1e-3, help='learning rate')
         parser.add_argument("--batch_size", type=int, default=8192)
 
-        parser.add_argument('--model_name', type=MODEL_ZOO.get, default='TensorVMSplit', choices=MODEL_ZOO)
+        parser.add_argument('--model_name', type=MODEL_ZOO.load, default='TensorVMSplit', choices=MODEL_ZOO)
         parser.add_argument('--dataset_name', type=str, default='blender', choices=dataset_dict.keys())
 
         # network decoder

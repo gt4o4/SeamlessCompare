@@ -393,7 +393,7 @@ class ConfigCommand:
         parser.add_argument('--downsample_train', type=float, default=1.0)
         parser.add_argument('--downsample_test', type=float, default=1.0)
 
-        parser.add_argument('--model_name', type=MODEL_ZOO.get, default='TensorVMSplit', choices=MODEL_ZOO)
+        parser.add_argument('--model_name', type=MODEL_ZOO.load, default='TensorVMSplit', choices=MODEL_ZOO)
 
         # loader options
         parser.add_argument("--batch_size", type=int, default=4096)
@@ -436,14 +436,14 @@ class ConfigCommand:
         parser.add_argument("--at_least_aabb", type=float, nargs='+', help='minimum bbox')
 
         # network decoder
-        parser.add_argument("--shadingMode", type=RENDER_ZOO.get, default="MLP_PE", choices=RENDER_ZOO)
+        parser.add_argument("--shadingMode", type=RENDER_ZOO.load, default="MLP_PE", choices=RENDER_ZOO)
         parser.add_argument("--pos_pe", type=int, default=6, help='number of pe for pos')
         parser.add_argument("--view_pe", type=int, default=6, help='number of pe for view')
         parser.add_argument("--fea_pe", type=int, default=6, help='number of pe for features')
         parser.add_argument("--featureC", type=int, default=128, help='hidden feature channel in MLP')
         parser.add_argument("--palette_type", action='store_true', help='use palette for color')
         parser.add_argument("--semantic_type", type=str, help='semantic type')
-        parser.add_argument("--lossMode", type=LOSS_ZOO.get, default='PLTLoss', choices=LOSS_ZOO)
+        parser.add_argument("--lossMode", type=LOSS_ZOO.load, default='PLTLoss', choices=LOSS_ZOO)
 
         parser.add_argument("--ckpt", type=str, default=None,
                             help='specific weights npy file to reload for coarse network')

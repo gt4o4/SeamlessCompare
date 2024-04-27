@@ -1,4 +1,7 @@
 import json
+from collections import UserDict
+from functools import partial
+from itertools import chain
 from types import SimpleNamespace
 
 from models.colorRF import ColorVMSplit, PoissonMLPRender
@@ -7,23 +10,36 @@ from models.renderBase import PLTRender, MultiplePLTRender, SHRender, RGBRender,
 from models.tensoRF import TensorVM, TensorCP, TensorVMSplit
 
 
-class ClassCollection(dict):
-    class CCMeta(type):
+class ClassCollection(UserDict):
+    class CCMeta(partial):
+        class CCType(type):
+            def __str__(self):
+                return self.__name__.__str__()
+
+            def __repr__(self):
+                return self.__qualname__.__repr__()
+
+        def __new__(cls, func, /, *args, **kwargs):
+            return cls.CCType(func.__name__, (func,), {}) if isinstance(func, type) else super().__new__(
+                cls, func, *args, **kwargs)
+
         def __str__(self):
-            return self.__name__
+            return self.func.__name__.__str__()
 
         def __repr__(self):
-            return self.__qualname__
+            return self.func.__qualname__.__repr__()
 
     def __init__(self, *classes):
-        super().__init__((cls.__name__, cls) for cls in classes)
-        self.aliases = {alias: cls for cls in classes for alias in getattr(cls, '_aliases', ())}
+        super().__init__(
+            (alias, self.CCMeta(cls)) for cls in classes for alias in chain(
+                (cls.__name__,), getattr(cls, '_aliases', ())
+            ))
 
     def __contains__(self, item):
-        return str(item) in self.keys() or item in self.values()
+        return str(item) in self.data.keys() or item in self.data.values()
 
-    def get(self, name):
-        return self.CCMeta(name, (super().get(name, self.aliases.get(name, type(name, (), {}))),), {})
+    def load(self, name):
+        return self.get(name, name)
 
 
 class TransformFile(SimpleNamespace):

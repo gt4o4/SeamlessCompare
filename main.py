@@ -1,7 +1,8 @@
 import argparse
+import io
 import logging
 import os
-from contextlib import suppress, nullcontext
+from contextlib import suppress, nullcontext, redirect_stdout
 from io import StringIO
 from typing import Union, Text
 
@@ -10,7 +11,6 @@ class TextIO(str):
     def __new__(cls, *args, **kw):
         obj = super().__new__(cls, *args, **kw)
         obj.file = StringIO()
-        print(obj, file=obj.file)
         return obj
 
     @staticmethod
@@ -30,9 +30,10 @@ class ConfigParser(argparse.Namespace):
 
         def get_parser_cfg(self, args, header):
             s: Union[TextIO, Text] = TextIO(header)
-            with s.file as f:
+            with s.file as f, StringIO(f'[{header}]  # ') as h, redirect_stdout(h):
+                h.seek(0, io.SEEK_END)
                 self.write_config_file(args, (s,))
-                return f.getvalue()
+                return h.getvalue() + f.getvalue()
 
         def acton(self, cfg):
             self.command = cfg(self)
