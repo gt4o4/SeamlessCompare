@@ -12,22 +12,14 @@ from models.tensoRF import TensorVM, TensorCP, TensorVMSplit
 
 class ClassCollection(UserDict):
     class CCMeta(partial):
-        class CCType(type):
-            def __str__(self):
-                return self.__name__.__str__()
-
-            def __repr__(self):
-                return self.__qualname__.__repr__()
-
-        def __new__(cls, func, /, *args, **kwargs):
-            return cls.CCType(func.__name__, (func,), {}) if isinstance(func, type) else super().__new__(
-                cls, func, *args, **kwargs)
-
         def __str__(self):
             return self.func.__name__.__str__()
 
         def __repr__(self):
             return self.func.__qualname__.__repr__()
+
+        def __getattr__(self, item):
+            return getattr(self.func, item)
 
     def __init__(self, *classes):
         super().__init__(
