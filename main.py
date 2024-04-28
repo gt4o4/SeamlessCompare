@@ -29,10 +29,14 @@ class ConfigParser(argparse.Namespace):
             super().__init__(*args, config_file_open_func=TextIO.open, **kwargs)
 
         def get_parser_cfg(self, args, header):
+            from configargparse import _DEFAULTS_SOURCE_KEY
             s: Union[TextIO, Text] = TextIO(header)
             with s.file as f, StringIO(f'[{header}]  # ') as h, redirect_stdout(h):
                 h.seek(0, io.SEEK_END)
+                d = self.get_source_to_settings_dict()
+                v = d.pop(_DEFAULTS_SOURCE_KEY)
                 self.write_config_file(args, (s,))
+                d[_DEFAULTS_SOURCE_KEY] = v
                 return h.getvalue() + f.getvalue()
 
         def acton(self, cfg):
