@@ -1,5 +1,5 @@
 import json
-from collections import UserDict
+from collections import UserDict, UserString
 from functools import partial
 from itertools import chain
 from types import SimpleNamespace
@@ -34,17 +34,18 @@ class ClassCollection(UserDict):
         return self.get(name, name)
 
 
-class TransformFile(SimpleNamespace):
+class TransformFile(UserString):
     @staticmethod
-    def load(filename):
-        with open(filename) as f:
-            return json.load(f, object_hook=TransformFile)
+    def _load(d):
+        return SimpleNamespace(**d)
 
-    def __init__(self, d):
-        super().__init__(**d)
+    def __init__(self, filename):
+        super().__init__(filename)
+        with open(filename, mode='r') as f:
+            self.ns = json.load(f, object_hook=self._load)
 
     def get(self, *args):
-        return [getattr(self, item.removesuffix('_VM').replace('scene', 'scan'), None) for item in args]
+        return [getattr(self.ns, item.removesuffix('_VM').replace('scene', 'scan'), None) for item in args]
 
 
 MODEL_ZOO = ClassCollection(TensorVM, TensorCP, TensorVMSplit, ColorVMSplit)

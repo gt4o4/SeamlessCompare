@@ -380,8 +380,8 @@ class ConfigCommand:
         parser.add_argument('--downsample_test', type=float, default=1.0)
 
         group = parser.add_mutually_exclusive_group()
-        group.add_argument("--transform", type=TransformFile.load, help='input transform')
-        group.add_argument('--matrix', type=float, nargs='+', default=())
+        group.add_argument("--transform", type=TransformFile, help='input transform')
+        group.add_argument('--matrix', type=float, nargs='+')
 
         parser.add_argument("--lr_basis", type=float, default=1e-3, help='learning rate')
         parser.add_argument("--batch_size", type=int, default=8192)
@@ -408,9 +408,9 @@ class ConfigCommand:
 
         # logging/saving options
         parser.add_argument("--render_gap", type=float, help='render step size gap for target')
-        parser.add_argument("--density_gain", type=float, default=1, help='density gain for source')
-        parser.add_argument("--delta_scale", type=float, default=1, help='weight for loss_diff')
-        parser.add_argument('--nSamples', type=int, default=1e6,
+        parser.add_argument("--density_gain", type=float, default=1., help='density gain for source')
+        parser.add_argument("--delta_scale", type=float, default=1., help='weight for loss_diff')
+        parser.add_argument('--nSamples', type=int, default=int(1e6),
                             help='sample point each ray, pass 1e6 if automatic adjust')
 
         # loss weight
