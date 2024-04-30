@@ -39,6 +39,19 @@ class ConfigParser(argparse.Namespace):
                 d[_DEFAULTS_SOURCE_KEY] = v
                 return h.getvalue() + f.getvalue()
 
+        def build_args_command(self, source_args):
+            new_args = []
+            for a in self._actions:
+                new_val = getattr(source_args, a.dest, None) if a.dest is not None else None
+                if new_val is not None and a.default != new_val and str(a.default) != str(new_val):
+                    k, *_ = self.get_possible_config_keys(a)
+                    try:
+                        arg = self.convert_item_to_command_line_arg(a, k, new_val)
+                    except (AssertionError, ValueError):
+                        arg = self.convert_item_to_command_line_arg(a, k, str(new_val))
+                    new_args.extend(arg)
+            return new_args
+
         def acton(self, cfg):
             self.command = cfg(self)
             return self
