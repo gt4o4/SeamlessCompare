@@ -1,4 +1,5 @@
 import json
+import os
 from collections import UserDict, UserString
 from functools import partial
 from itertools import chain
@@ -45,7 +46,9 @@ class TransformFile(UserString):
             self.ns = json.load(f, object_hook=self._load)
 
     def get(self, *args):
-        return [getattr(self.ns, item.removesuffix('_VM').replace('scene', 'scan'), None) for item in args]
+        prefix = os.path.commonprefix(args)
+        return [getattr(self.ns, item.removeprefix(prefix).removesuffix('_VM').replace('scene', 'scan'), None)
+                for item in args]
 
 
 MODEL_ZOO = ClassCollection(TensorVM, TensorCP, TensorVMSplit, ColorVMSplit)

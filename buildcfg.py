@@ -50,6 +50,8 @@ class ConfigCommand:
             print('; '.join(target_cfg.splitlines(keepends=True)), file=f)
             print('#', datetime.now(), file=f)
 
+        return parser.command(merge_args)
+
     def train_ckpt_config(self, config_contents, header=None):
         parser = type(self.parser)().acton(train.ConfigCommand)
         source_args = parser.parse_args(args=(), config_file_contents=config_contents)

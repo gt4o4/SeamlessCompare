@@ -44,14 +44,19 @@ class Merger(Evaluator):
         # if not args.render_only else None
         train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_test, is_stack=False,
                                 semantic_type=args.semantic_type, transform_scale=transform_type.scale)
-        test_dataset = dataset(args.datadir, split='video', downsample=args.downsample_test, is_stack=True,
+        test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_test, is_stack=True,
                                semantic_type=args.semantic_type, pca=getattr(train_dataset, 'pca', None))
-        merge_dataset = dataset(args.datadir, split='merge', downsample=args.downsample_test, is_stack=True,
-                                semantic_type=args.semantic_type, pca=getattr(train_dataset, 'pca', None))
-        self.extra_dataset = merge_dataset
+        try:
+            self.extra_dataset = dataset(args.datadir, split='merge', downsample=args.downsample_test, is_stack=True,
+                                         semantic_type=args.semantic_type, pca=getattr(train_dataset, 'pca', None))
+        except FileNotFoundError:
+            self.extra_dataset = test_dataset
+
         super().__init__(self.build_network(), args, test_dataset, train_dataset, pool=pool)
+
         self.tensorf.args = self.args
         self.optimizer = None
+
         print('at_least_aabb = ', aabb_min.tolist() + aabb_max.tolist())
         aabb_ref = self.tensorf.aabb.cpu().numpy()
         print('cur_aabb = ', aabb_ref[0].tolist() + aabb_ref[1].tolist())
