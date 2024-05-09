@@ -1,3 +1,4 @@
+import json
 import operator
 import os
 import shutil
@@ -23,9 +24,13 @@ def copy_ckpt(source_ckpt, target_ckpt):
 def generate_expname(source_name, target_name):
     common_match = SequenceMatcher(
         operator.methodcaller('isspace'), source_name, target_name).find_longest_match()
-    expname = source_name[common_match.a:common_match.a + common_match.size].strip().strip('_') if \
+    prefix = source_name[common_match.a:common_match.a + common_match.size].strip().strip('_') if \
         common_match.size else f"{source_name.strip().rstrip('_')}_{target_name.strip().strip('_')}"
-    return f"{expname}_merge"
+    return f"{prefix}_merge", prefix
+
+
+def build_transform(source_aabb, target_aabb, source_trans, target_trans):
+    return vars(source_trans), vars(target_trans)
 
 
 class ConfigCommand:
@@ -36,14 +41,17 @@ class ConfigCommand:
         self.parser = parser
 
     def __call__(self, args):
-        source_cfg = self.train_ckpt_config(args.source.read_text(), 'Source')
-        target_cfg = self.train_ckpt_config(args.target.read_text(), 'Target')
-        merge_cfg = self.merge_ckpt_config(source_cfg, target_cfg, args, 'Merge')
+        merge_cfg, source_args, target_args = self.merge_ckpt_config(
+            source_cfg=self.train_ckpt_config(source_cfg := args.source.read_text(), dryrun=True, header='Source'),
+            target_cfg=self.train_ckpt_config(target_cfg := args.target.read_text(), dryrun=True, header='Target'),
+            merge_args=self.parser.build_args_command(args), header='Merge')
 
         parser = type(self.parser)().acton(merge.ConfigCommand)
         merge_args = parser.parse_args(args=self.parser.build_args_command(args), config_file_contents=merge_cfg)
         merge_dir = Path(merge_args.basedir, merge_args.expname)
 
+        source_cfg = self.train_ckpt_config(source_cfg, source_args, header='Source')
+        target_cfg = self.train_ckpt_config(target_cfg, target_args, header='Target')
         with (merge_dir / f'{merge_args.expname}.txt').open(mode='w') as f:
             print(parser.get_parser_cfg(merge_args, 'Merge'), file=f)
             print('; '.join(source_cfg.splitlines(keepends=True)), file=f)
@@ -52,33 +60,75 @@ class ConfigCommand:
 
         return parser.command(merge_args)
 
-    def train_ckpt_config(self, config_contents, header=None):
+    def train_ckpt_config(self, config_contents, config_args=(), header=None, dryrun=False):
         parser = type(self.parser)().acton(train.ConfigCommand)
-        source_args = parser.parse_args(args=(), config_file_contents=config_contents)
+        source_args = parser.parse_args(args=config_args, config_file_contents=config_contents)
 
         if not source_args.ckpt:
             source_args.ckpt = find_ckpt(source_args.basedir, source_args.expname)
-        source_args.render_only = source_args.render_test = source_args.ckpt is not None
-        source_args.render_train = source_args.render_path = False
 
-        parser.command(source_args := parser.parse_args(args=parser.build_args_command(source_args)))
-        return parser.get_parser_cfg(source_args, header) if header else source_args
+        source_args.render_only = source_args.ckpt is not None
+        source_args.render_train = source_args.render_test = source_args.render_path = False
+
+        # if dryrun and source_args.transform and not source_args.render_only:
+        #     source_args.transform.ns = None
+
+        evaluator = parser.command(source_args)
+        if not source_args.render_only and (new_ckpt := find_ckpt(source_args.basedir, source_args.expname)):
+            source_args.ckpt = new_ckpt
+
+        if not source_args.at_least_aabb:
+            source_args.at_least_aabb = evaluator.tensorf.aabb.flatten().tolist()
+
+        source_args = parser.build_args_command(source_args)
+        if header:
+            source_args = parser.get_parser_cfg(parser.parse_args(args=source_args), header)
+        return source_args
 
     def merge_ckpt_config(self, source_cfg, target_cfg, merge_args, header=None):
         parser = type(self.parser)().acton(merge.ConfigCommand)
-        ignore_set = {'ckpt', 'expname'}
+        ignore_set = {'ckpt', 'expname', 'at_least_aabb'}
 
-        source_args, _ = parser.parse_known_args(args=self.parser.build_args_command(merge_args),
-                                                 config_file_contents=source_cfg)
-        target_args, _ = parser.parse_known_args(args=parser.build_args_command(SimpleNamespace(**{
+        source_args, _ = parser.parse_known_args(args=merge_args, config_file_contents=source_cfg)
+        merge_args, _ = parser.parse_known_args(args=parser.build_args_command(SimpleNamespace(**{
             k: v for k, v in source_args._get_kwargs() if k not in ignore_set})), config_file_contents=target_cfg)
 
-        target_args.expname = generate_expname(source_args.expname, target_args.expname)
+        merge_args.expname, prefix = generate_expname(source_args.expname, merge_args.expname)
 
-        merge_dir = Path(target_args.basedir, target_args.expname)
+        merge_dir = Path(merge_args.basedir, merge_args.expname)
         merge_dir.mkdir(parents=True, exist_ok=True)
-        copy_ckpt(source_args.ckpt, merge_dir / f'{target_args.expname}.th')
-        target_args.ckpt = copy_ckpt(target_args.ckpt, merge_dir / os.path.basename(target_args.ckpt))
 
-        merge_args = parser.parse_args(args=parser.build_args_command(target_args))
-        return parser.get_parser_cfg(merge_args, header) if header else merge_args
+        source_args, target_args = self.transform_ckpt_config(
+            source_cfg, target_cfg, merge_args, merge_dir / f'{prefix}_transforms.json')
+
+        merge_args = parser.build_args_command(merge_args)
+        if header:
+            merge_args = parser.get_parser_cfg(parser.parse_args(args=merge_args), header)
+        return merge_args, source_args, target_args
+
+    def transform_ckpt_config(self, source_cfg, target_cfg, merge_args, filename):
+        parser = type(self.parser)().acton(train.ConfigCommand)
+
+        source_args, _ = parser.parse_known_args(args=(), config_file_contents=source_cfg)
+        target_args, _ = parser.parse_known_args(args=(), config_file_contents=target_cfg)
+
+        source_trans, target_trans = build_transform(
+            source_args.at_least_aabb, target_args.at_least_aabb,
+            *source_args.transform.get(source_args.expname, target_args.expname))
+
+        source_name = Path(source_args.datadir).stem
+        target_name = Path(target_args.datadir).stem
+        prefix = os.path.commonprefix((source_name, target_name))
+        with open(filename := os.fspath(filename), mode='w') as f:
+            json.dump({
+                source_name.removeprefix(prefix): source_trans,
+                target_name.removeprefix(prefix): target_trans}, f, indent=4)
+
+        # copy_ckpt(source_args.ckpt, merge_dir / PurePath(os.path.basename(merge_args.datadir)).with_suffix('.th'))
+        # merge_args.ckpt = copy_ckpt(merge_args.ckpt, merge_dir / os.path.basename(merge_args.ckpt))
+        source_args.expname = merge_args.expname
+        source_args.basedir = target_args.basedir = merge_args.basedir
+        source_args.transform = target_args.transform = merge_args.transform = filename
+        source_args.ckpt = target_args.ckpt = target_args.at_least_aabb = None
+
+        return parser.build_args_command(source_args), parser.build_args_command(target_args)

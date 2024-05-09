@@ -47,8 +47,11 @@ class TransformFile(UserString):
 
     def get(self, *args):
         prefix = os.path.commonprefix(args)
-        return [getattr(self.ns, item.removeprefix(prefix).removesuffix('_VM').replace('scene', 'scan'), None)
-                for item in args]
+        suffix = '_VM'
+        strip = '_'
+        return [getattr(
+            self.ns, item.removeprefix(prefix).removesuffix(suffix).strip(strip).replace('scene', 'scan'), None
+        ) for item in args]
 
 
 MODEL_ZOO = ClassCollection(TensorVM, TensorCP, TensorVMSplit, ColorVMSplit)

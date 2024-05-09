@@ -426,3 +426,4 @@ class ConfigCommand:
         with ThreadPool() as pool:
             merger = Merger(args, pool)
             merger.merge()
+        return merger

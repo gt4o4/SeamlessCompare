@@ -5,7 +5,7 @@ import sys
 from collections import defaultdict
 from contextlib import nullcontext, suppress
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Iterable
 
 import numpy as np
@@ -67,7 +67,8 @@ class Trainer:
     def __init__(self, args):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.renderer = OctreeRender_trilinear_fast
-        if transform_type := getattr(args.transform, Path(args.datadir).stem.replace('scene', 'scan'), None):
+        transform_type, _ = args.transform.get(Path(args.datadir).stem, PurePath(str(args.transform)).stem)
+        if transform_type:
             transform_scale = transform_type.scale
         else:
             transform_scale = None
@@ -482,7 +483,11 @@ class ConfigCommand:
         if args.export_mesh:
             trainer.export_mesh()
 
-        if args.render_only and (args.render_test or args.render_path):
-            Evaluator(trainer.build_network(), args, trainer.test_dataset, trainer.train_dataset).render_test()
+        if args.render_only:
+            evaluator = Evaluator(trainer.build_network(), args, trainer.test_dataset, trainer.train_dataset)
+            if args.render_test or args.render_path:
+                evaluator.render_test()
         else:
-            trainer.reconstruction()
+            evaluator = trainer.reconstruction()
+
+        return evaluator

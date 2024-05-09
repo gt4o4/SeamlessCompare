@@ -212,14 +212,14 @@ class Evaluator:
             if getattr(args, 'add_timestamp', None):
                 logfolder = logfolder / datetime.now().strftime("-%Y%m%d-%H%M%S")
 
-        PSNRs_test = None
+        PSNRs_test = ()
         if args.render_test:
             filePath = logfolder / 'imgs_test_all'
             PSNRs_test = self.evaluation(os.fspath(filePath), N_vis=-1, N_samples=-1, white_bg=white_bg,
                                          ndc_ray=ndc_ray)
             print(f'======> {args.expname} test all psnr: {np.mean(PSNRs_test)} <========================')
 
-        PSNRs_path = None
+        PSNRs_path = ()
         if args.render_path:
             filePath = logfolder / 'imgs_path_all'
             c2ws = self.test_dataset.render_path
@@ -228,7 +228,7 @@ class Evaluator:
             PSNRs_path = self.evaluation_path(c2ws, os.fspath(filePath), N_vis=-1, N_samples=-1, white_bg=white_bg,
                                               ndc_ray=ndc_ray)
 
-        PSNRs_train = None
+        PSNRs_train = ()
         if args.render_train:
             filePath = logfolder / 'imgs_train_all'
             self.test_dataset, self.alt_dataset = self.alt_dataset, self.test_dataset
