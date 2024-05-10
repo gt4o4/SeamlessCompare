@@ -1,7 +1,8 @@
-import torch, re
 import numpy as np
-from torch import searchsorted
+import re
+import torch
 from kornia import create_meshgrid
+from torch import searchsorted
 
 
 # from utils import index_point_feature
@@ -52,7 +53,7 @@ def get_ray_directions_blender(H, W, focal, center=None):
     Outputs:
         directions: (H, W, 3), the direction of the rays in camera coordinate
     """
-    grid = create_meshgrid(H, W, normalized_coordinates=False)[0]+0.5
+    grid = create_meshgrid(H, W, normalized_coordinates=False)[0] + 0.5
     i, j = grid.unbind(-1)
     # the direction here is without +0.5 pixel centering as calibration is not so accurate
     # see https://github.com/bmild/nerf/issues/24
@@ -84,7 +85,7 @@ def get_rays(directions, c2w):
     rays_d = rays_d.view(-1, 3)
     rays_o = rays_o.view(-1, 3)
 
-    return rays_o, rays_d
+    return rays_o, rays_d / torch.norm(rays_d, dim=-1, keepdim=True)
 
 
 def ndc_rays_blender(H, W, focal, near, rays_o, rays_d):
@@ -106,6 +107,7 @@ def ndc_rays_blender(H, W, focal, near, rays_o, rays_d):
 
     return rays_o, rays_d
 
+
 def ndc_rays(H, W, focal, near, rays_o, rays_d):
     # Shift ray origins to near plane
     t = (near - rays_o[..., 2]) / rays_d[..., 2]
@@ -124,6 +126,7 @@ def ndc_rays(H, W, focal, near, rays_o, rays_d):
     rays_d = torch.stack([d0, d1, d2], -1)
 
     return rays_o, rays_d
+
 
 # Hierarchical sampling (section 5.2)
 def sample_pdf(bins, weights, N_samples, det=False, pytest=False):
@@ -267,9 +270,9 @@ def read_pfm(filename):
 
 
 def ndc_bbox(all_rays):
-    near_min = torch.min(all_rays[...,:3].view(-1,3),dim=0)[0]
+    near_min = torch.min(all_rays[..., :3].view(-1, 3), dim=0)[0]
     near_max = torch.max(all_rays[..., :3].view(-1, 3), dim=0)[0]
-    far_min = torch.min((all_rays[...,:3]+all_rays[...,3:6]).view(-1,3),dim=0)[0]
-    far_max = torch.max((all_rays[...,:3]+all_rays[...,3:6]).view(-1, 3), dim=0)[0]
+    far_min = torch.min((all_rays[..., :3] + all_rays[..., 3:6]).view(-1, 3), dim=0)[0]
+    far_max = torch.max((all_rays[..., :3] + all_rays[..., 3:6]).view(-1, 3), dim=0)[0]
     print(f'===> ndc bbox near_min:{near_min} near_max:{near_max} far_min:{far_min} far_max:{far_max}')
-    return torch.stack((torch.minimum(near_min,far_min),torch.maximum(near_max,far_max)))
+    return torch.stack((torch.minimum(near_min, far_min), torch.maximum(near_max, far_max)))
