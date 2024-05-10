@@ -22,7 +22,7 @@ from utils import convert_sdf_samples_to_ply, cal_n_samples
 
 
 class Merger(Evaluator):
-    def __init__(self, args, pool):
+    def __init__(self, args, pool=None):
         self.args = args
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.target = self.build_network(self.args.ckpt)
@@ -56,6 +56,7 @@ class Merger(Evaluator):
 
         self.tensorf.args = self.args
         self.optimizer = None
+        self.at_least_aabb = aabb_min.tolist() + aabb_max.tolist()
 
         print('at_least_aabb = ', aabb_min.tolist() + aabb_max.tolist())
         aabb_ref = self.tensorf.aabb.cpu().numpy()
@@ -427,3 +428,8 @@ class ConfigCommand:
             merger = Merger(args, pool)
             merger.merge()
         return merger
+
+    @staticmethod
+    def get_merger(args):
+        assert args.render_only
+        return Merger(args)

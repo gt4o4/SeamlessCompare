@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import merge
 import train
+from models import TransformFile
 
 
 def find_ckpt(basedir, expname):
@@ -101,10 +102,15 @@ class ConfigCommand:
         source_args, target_args = self.transform_ckpt_config(
             source_cfg, target_cfg, merge_args, merge_dir / f'{prefix}_transforms.json')
 
+        merger = parser.command.get_merger(merge_args)
+        if merge_args.transform is not None:
+            merge_args.matrix = None
+
         merge_args = parser.build_args_command(merge_args)
+
         if header:
             merge_args = parser.get_parser_cfg(parser.parse_args(args=merge_args), header)
-        return merge_args, source_args, target_args
+        return merge_args, self.check_source_aabb(source_args, merger.at_least_aabb), target_args
 
     def transform_ckpt_config(self, source_cfg, target_cfg, merge_args, filename):
         parser = type(self.parser)().acton(train.ConfigCommand)
@@ -119,7 +125,7 @@ class ConfigCommand:
         source_name = Path(source_args.datadir).stem
         target_name = Path(target_args.datadir).stem
         prefix = os.path.commonprefix((source_name, target_name))
-        with open(filename := os.fspath(filename), mode='w') as f:
+        with open(filename, mode='w') as f:
             json.dump({
                 source_name.removeprefix(prefix): source_trans,
                 target_name.removeprefix(prefix): target_trans}, f, indent=4)
@@ -128,7 +134,13 @@ class ConfigCommand:
         # merge_args.ckpt = copy_ckpt(merge_args.ckpt, merge_dir / os.path.basename(merge_args.ckpt))
         source_args.expname = merge_args.expname
         source_args.basedir = target_args.basedir = merge_args.basedir
-        source_args.transform = target_args.transform = merge_args.transform = filename
+        source_args.transform = target_args.transform = merge_args.transform = TransformFile(filename)
         source_args.ckpt = target_args.ckpt = target_args.at_least_aabb = None
 
         return parser.build_args_command(source_args), parser.build_args_command(target_args)
+
+    def check_source_aabb(self, source_args, at_least_aabb):
+        parser = type(self.parser)().acton(train.ConfigCommand)
+        source_args, _ = parser.parse_known_args(args=source_args)
+        source_args.at_least_aabb = at_least_aabb
+        return parser.build_args_command(source_args)
