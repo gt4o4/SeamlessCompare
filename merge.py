@@ -27,17 +27,12 @@ class Merger(Evaluator):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.target = self.build_network(self.args.ckpt)
         transform_type, tgt_trans = args.transform.get(Path(args.datadir).stem, Path(args.ckpt).stem)
-        aabb = self.target.aabb.cpu().numpy()
         if tgt_trans and not args.matrix:
             scale = np.diag((1., 1., 1., 1.))  # scale = np.diag((0.67, 0.67, 0.67, 1.))
-            aabb = np.hstack((aabb, np.ones((2, 1))))
             r = Rotation.from_quat(np.roll(tgt_trans.rot, -1)).as_matrix()
             r = np.hstack((r, np.expand_dims(np.asarray(tgt_trans.trans), -1)))
             r = np.vstack((r, np.array((0, 0, 0, 1)))) @ scale
             args.matrix = r.ravel().tolist()
-            aabb = np.matmul(aabb, r.T)[..., :3]
-        aabb_min = np.min(aabb, axis=0)
-        aabb_max = np.max(aabb, axis=0)
 
         # init dataset
         dataset = dataset_dict[args.dataset_name]
@@ -47,7 +42,7 @@ class Merger(Evaluator):
         test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_test, is_stack=True,
                                semantic_type=args.semantic_type, pca=getattr(train_dataset, 'pca', None))
         try:
-            self.extra_dataset = dataset(args.datadir, split='merge', downsample=args.downsample_test, is_stack=True,
+            self.extra_dataset = dataset(args.datadir, split='video', downsample=args.downsample_test, is_stack=True,
                                          semantic_type=args.semantic_type, pca=getattr(train_dataset, 'pca', None))
         except FileNotFoundError:
             self.extra_dataset = test_dataset
@@ -56,14 +51,6 @@ class Merger(Evaluator):
 
         self.tensorf.args = self.args
         self.optimizer = None
-        self.at_least_aabb = aabb_min.tolist() + aabb_max.tolist()
-
-        print('at_least_aabb = ', aabb_min.tolist() + aabb_max.tolist())
-        aabb_ref = self.tensorf.aabb.cpu().numpy()
-        print('cur_aabb = ', aabb_ref[0].tolist() + aabb_ref[1].tolist())
-        aabb_min = np.minimum(aabb_ref[0], aabb_min)
-        aabb_max = np.maximum(aabb_ref[1], aabb_max)
-        print('mix_aabb = ', aabb_min.tolist() + aabb_max.tolist())
 
     def build_network(self, ckpt=None):
         args = self.args
