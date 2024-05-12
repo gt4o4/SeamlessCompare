@@ -2,6 +2,7 @@ import json
 import operator
 import os
 import shutil
+from collections import namedtuple
 from datetime import datetime
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -14,6 +15,8 @@ from scipy.spatial.transform import Rotation
 import merge
 import train
 from models import TransformFile
+
+Vector3 = namedtuple('Vector3', ('x', 'y', 'z'))
 
 
 def find_ckpt(basedir, expname):
@@ -32,6 +35,19 @@ def generate_expname(source_name, target_name):
     prefix = source_name[common_match.a:common_match.a + common_match.size].strip().strip('_') if \
         common_match.size else f"{source_name.strip().rstrip('_')}_{target_name.strip().strip('_')}"
     return f"{prefix}_merge", prefix
+
+
+def boundingBox(low: Vector3, high: Vector3):
+    corner1 = Vector3(low.x, low.y, low.z)
+    corner2 = Vector3(high.x, low.y, low.z)
+    corner3 = Vector3(low.x, high.y, low.z)
+    corner4 = Vector3(low.x, low.y, high.z)
+    corner5 = Vector3(high.x, high.y, low.z)
+    corner6 = Vector3(high.x, low.y, high.z)
+    corner7 = Vector3(low.x, high.y, high.z)
+    corner8 = Vector3(high.x, high.y, high.z)
+
+    return corner1, corner2, corner3, corner4, corner5, corner6, corner7, corner8
 
 
 class ConfigCommand:
@@ -142,9 +158,10 @@ class ConfigCommand:
 
         _, tgt_trans = source_args.transform.get(source_args.expname, target_args.expname)
 
-        aabb = np.asarray(target_args.at_least_aabb).reshape(2, 3)
+        aabb = np.asarray(boundingBox(Vector3(*target_args.at_least_aabb[:3]),
+                                      Vector3(*target_args.at_least_aabb[3:]))).reshape(-1, 3)
         scale = np.diag((1., 1., 1., 1.))  # scale = np.diag((0.67, 0.67, 0.67, 1.))
-        aabb = np.hstack((aabb, np.ones((2, 1))))
+        aabb = np.hstack((aabb, np.ones((aabb.shape[0], 1))))
         r = Rotation.from_quat(np.roll(tgt_trans.rot, -1)).as_matrix()
         r = np.hstack((r, np.expand_dims(np.asarray(tgt_trans.trans), -1)))
         r = np.vstack((r, np.array((0, 0, 0, 1)))) @ scale
