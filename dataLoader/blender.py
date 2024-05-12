@@ -50,11 +50,14 @@ class BlenderDataset(Dataset):
         return depth
 
     def read_frame(self, file_path):
-        image_path = Path(self.root_dir, file_path)
-        if not image_path.suffix:
-            image_path = image_path.with_suffix(".png")
+        if file_path:
+            image_path = Path(self.root_dir, file_path)
+            if not image_path.suffix:
+                image_path = image_path.with_suffix(".png")
+        else:
+            image_path = os.devnull
         self.image_paths.append(os.fspath(image_path))
-        img = Image.open(image_path)
+        img = Image.open(image_path) if file_path else Image.new('RGB', self.img_wh)
 
         if self.downsample != 1.0:
             img = img.resize(self.img_wh, Image.LANCZOS)
@@ -121,7 +124,7 @@ class BlenderDataset(Dataset):
             pose = np.array(frame['transform_matrix']) @ self.blender2opencv
             c2w = torch.FloatTensor(pose if object_transform is None else object_transform @ pose)
             self.poses.append(c2w)
-            self.read_semantic(self.read_frame(frame['file_path']), vgg)
+            self.read_semantic(self.read_frame(frame.get('file_path')), vgg)
 
             rays_o, rays_d = get_rays(self.directions, c2w)  # both (h*w, 3)
             self.all_rays.append(torch.cat([rays_o, rays_d], 1))  # (h*w, 6)

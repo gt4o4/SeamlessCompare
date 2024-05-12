@@ -251,7 +251,7 @@ class Merger(Evaluator):
         mask = self.tensorf.compute_validmask(all_query_pts, bitmap=True)
         dists = torch.full_like(mask, self.tensorf.stepSize, dtype=torch.float32)
         app_mask, _ = self.filter_pts(all_query_pts, dists, mask.bool())
-        mask[~app_mask] = 0
+        mask.masked_fill_(~app_mask, 0)
         mask = rearrange(mask, '(n d) -> n d', n=pts.shape[0]).cpu()
         all_query_pts = rearrange(all_query_pts, '(n d) c -> n d c', n=pts.shape[0]).cpu()
         pts_viewdir = aval_rep[knn_idx[:, 0], None, 3:].cpu().expand(-1, all_query_pts.shape[1], -1)
@@ -349,6 +349,7 @@ class Merger(Evaluator):
             with torch.no_grad():
                 old_near_far = self.tensorf.near_far
                 self.tensorf.near_far = (0.001, 6.0)
+                self.tensorf.at_least_aabb = (-1.5, -1.5, -1.5, 1.5, 1.5, 1.5)
                 self.eval_sample(test_idx, self.test_dataset.all_rays[test_idx], save_path, f'it{cur_idx:06d}_',
                                  N_samples=-1, white_bg=self.test_dataset.white_bg, save_GT=False)
                 self.tensorf.near_far = old_near_far

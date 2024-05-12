@@ -196,12 +196,17 @@ class TensorBase(torch.nn.Module):
         return rays_pts, interpx
 
     def sample_ray(self, rays_o, rays_d, is_train=True, N_samples=-1):
+        aabb = self.aabb
+        if at_least_aabb := getattr(self, 'at_least_aabb', None):
+            at_least_aabb = torch.as_tensor(at_least_aabb, device=aabb.device, dtype=aabb.dtype).view(*aabb.shape)
+            aabb = torch.stack((torch.minimum(aabb[0], at_least_aabb[0]),
+                                torch.maximum(aabb[1], at_least_aabb[1])), dim=0)
         N_samples = N_samples if N_samples > 0 else self.nSamples
         stepsize = self.stepSize
         near, far = self.near_far
         vec = torch.where(rays_d == 0, torch.full_like(rays_d, 1e-6), rays_d)
-        rate_a = (self.aabb[1] - rays_o) / vec
-        rate_b = (self.aabb[0] - rays_o) / vec
+        rate_a = (aabb[1] - rays_o) / vec
+        rate_b = (aabb[0] - rays_o) / vec
         t_min = torch.minimum(rate_a, rate_b).amax(-1).clamp(min=near, max=far)
 
         rng = torch.arange(N_samples)[None].float()

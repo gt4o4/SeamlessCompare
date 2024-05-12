@@ -153,12 +153,13 @@ class ColorVMSplit(TensorVMSplit):
 
     def compute_validmask(self, xyz_sampled: torch.Tensor, bitmap=False):
         ray_valid = super().compute_validmask(xyz_sampled).int()
+        # if getattr(self, 'debug_eval', None):
+        #     return torch.ones_like(ray_valid, dtype=torch.int32 if bitmap else torch.bool)
         shift_and_scale = getattr(self.alphaMask, 'shift_and_scale', torch.nn.Identity())
         for model in self.merge_target:
             tgt_mask = model.compute_validmask(shift_and_scale(xyz_sampled))
             ray_valid = torch.bitwise_left_shift(ray_valid, 1)
             ray_valid = torch.bitwise_or(ray_valid, tgt_mask.int())
-            # ray_valid |= torch.ones_like(ray_valid, dtype=torch.bool, device=ray_valid.device)
         return ray_valid if bitmap else ray_valid.bool()
 
     def compute_densityfeature(self, xyz_sampled):
