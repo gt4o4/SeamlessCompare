@@ -1,8 +1,8 @@
 dataset_name = blender
-datadir = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/datasets/gxy1_target
-expname = gxy1_target2
+datadir = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/datasets/gxy4_source
+expname = gxy4_source
 basedir = ./log
-transform = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/rigidTrans/gxy1_debug2.json
+transform = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/rigidTrans/gxy4.json
 
 n_iters = 30000
 batch_size = 16384
