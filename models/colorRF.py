@@ -239,9 +239,9 @@ class PoissonMLPRender(MLPRender_Fea):
         self.orig_rgb = None
         self.ignore_control = False
         self.rand_viewdir = False
-        pts_path = '/media/gbcdisk/project/SA2023/SubmitLog_20230720/merge_Toad_over_Palace/cache/aval_rep.npy'
-        aval_rep = torch.from_numpy(open_memmap(pts_path, mode='r'))
-        self.register_buffer('aval_rep', aval_rep, persistent=False)
+        # pts_path = '/media/gbcdisk/project/SA2023/SubmitLog_20230720/merge_Toad_over_Palace/cache/aval_rep.npy'
+        # aval_rep = torch.from_numpy(open_memmap(pts_path, mode='r'))
+        # self.register_buffer('aval_rep', aval_rep, persistent=False)
 
     def forward(self, pts, viewdirs, features):
         if self.rand_viewdir:

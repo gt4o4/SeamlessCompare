@@ -265,6 +265,8 @@ class Merger(Evaluator):
         all_query_pts = rearrange(all_query_pts, '(n d) c -> n d c', n=pts.shape[0]).cpu()
         pts_viewdir = aval_rep[knn_idx[:, 0], None, 3:].cpu().expand(-1, all_query_pts.shape[1], -1)
         all_query_pts = torch.cat((all_query_pts, pts_viewdir), dim=-1)
+
+        np.save(ptsPath.with_stem('mask'), mask.cpu().numpy())
         return all_query_pts, mask, dists.view(*mask.shape).cpu()
 
     def compute_diff_loss(self, sigma_feature: DensityFeature, rgb, orig_rgb, bit_mask):
