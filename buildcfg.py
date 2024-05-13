@@ -5,12 +5,11 @@ import shutil
 from collections import namedtuple
 from datetime import datetime
 from difflib import SequenceMatcher
-from pathlib import Path
+from pathlib import Path, PurePath
 from types import SimpleNamespace
 
 import numpy as np
 import torch
-from scipy.spatial.transform import Rotation
 
 import merge
 import train
@@ -58,7 +57,7 @@ class ConfigCommand:
         self.parser = parser
 
     def __call__(self, args):
-        target_cfg = self.train_ckpt_config(args.target.read_text(), header='Target')
+        target_cfg = self.train_ckpt_config(args.target.read_text(), dryrun=True, header='Target')
         source_cfg = self.train_ckpt_config(None, self.check_aabb(args.source.read_text(), target_cfg), header='Source')
         merge_cfg = self.merge_ckpt_config(source_cfg, target_cfg,
                                            merge_args=self.parser.build_args_command(args), header='Merge')
@@ -85,8 +84,9 @@ class ConfigCommand:
         args.render_only = args.ckpt is not None
         args.render_train = args.render_test = args.render_path = False
 
-        # if dryrun and args.transform and not args.render_only:
-        #     args.transform.ns = None
+        if dryrun and args.transform and not args.render_only:
+            transform_type, _ = args.transform.get(Path(args.datadir).stem, PurePath(str(args.transform)).stem)
+            transform_type.rot = transform_type.trans = None
 
         evaluator = parser.command(args)
         if not args.render_only and (new_ckpt := find_ckpt(args.basedir, args.expname)):
@@ -135,6 +135,9 @@ class ConfigCommand:
     def transform_ckpt_config(self, source_name, merge_args, filename):
         target_name = merge_args.expname
         source_trans, target_trans = merge_args.transform.get(source_name, target_name)
+
+        del target_trans.scale
+
         prefix = os.path.commonprefix((source_name, target_name))
         with open(filename, mode='w') as f:
             json.dump({
@@ -160,12 +163,8 @@ class ConfigCommand:
 
         aabb = np.asarray(boundingBox(Vector3(*target_args.at_least_aabb[:3]),
                                       Vector3(*target_args.at_least_aabb[3:]))).reshape(-1, 3)
-        scale = np.diag((1., 1., 1., 1.))  # scale = np.diag((0.67, 0.67, 0.67, 1.))
         aabb = np.hstack((aabb, np.ones((aabb.shape[0], 1))))
-        r = Rotation.from_quat(np.roll(tgt_trans.rot, -1)).as_matrix()
-        r = np.hstack((r, np.expand_dims(np.asarray(tgt_trans.trans), -1)))
-        r = np.vstack((r, np.array((0, 0, 0, 1)))) @ scale
-        aabb = np.matmul(aabb, r.T)[..., :3]
+        aabb = np.matmul(aabb, tgt_trans.matrix().T)[..., :3]
         aabb_min = np.min(aabb, axis=0)
         aabb_max = np.max(aabb, axis=0)
 

@@ -5,6 +5,9 @@ from functools import partial
 from itertools import chain
 from types import SimpleNamespace
 
+import numpy as np
+from scipy.spatial.transform import Rotation
+
 from models.colorRF import ColorVMSplit, PoissonMLPRender
 from models.loss import PLTLoss
 from models.renderBase import PLTRender, MultiplePLTRender, SHRender, RGBRender, MLPRender_Fea, MLPRender_PE, MLPRender
@@ -36,14 +39,22 @@ class ClassCollection(UserDict):
 
 
 class TransformFile(UserString):
-    @staticmethod
-    def _load(d):
-        return SimpleNamespace(**d)
+    class SimpleTransform(SimpleNamespace):
+        def __init__(self, d):
+            super().__init__(**d)
+
+        def matrix(self):
+            scale = np.diag((*scale, 1.)) if (scale := getattr(self, 'scale', None)) else np.diag((1., 1., 1., 1.))
+            if r := getattr(self, 'rot', None):
+                r = Rotation.from_quat(np.roll(r, -1)).as_matrix()
+                r = np.hstack((r, np.expand_dims(np.asarray(self.trans), -1)))
+                scale = np.vstack((r, np.array((0, 0, 0, 1)))) @ scale
+            return scale
 
     def __init__(self, filename):
         super().__init__(filename)
         with open(filename, mode='r') as f:
-            self.ns = json.load(f, object_hook=self._load)
+            self.ns = json.load(f, object_hook=self.SimpleTransform)
 
     def get(self, *args):
         prefix = os.path.commonprefix(args)
