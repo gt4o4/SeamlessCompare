@@ -136,11 +136,14 @@ class Merger(Evaluator):
                     chunk_rep, = chunk_mask.nonzero(as_tuple=True)
                     aval_rep.append(torch.cat((xyz_sampled[chunk_rep, ind], viewdirs[chunk_rep, ind]), dim=-1).cpu())
                 aval_id.append(app_mask.count_nonzero(dim=-1).cpu())
-            del rays
-            self.logger.warn('sample_filter_dataset done. Concatenating files...')
+            # del rays
+            self.logger.warn('sample_filter_dataset done. Concatenating files: aval_id[partial]...')
             aval_id = torch.cat(aval_id, dim=0)
+            self.logger.warn('sample_filter_dataset done. Concatenating files: ind[partial]...')
             ind, = torch.nonzero(aval_id, as_tuple=True)
+            self.logger.warn('sample_filter_dataset done. Concatenating files: ind+aval_id...')
             aval_id = torch.stack((ind, aval_id[ind]), dim=-1)
+            self.logger.warn('sample_filter_dataset done. Concatenating files: aval_rep...')
             aval_rep = torch.cat(aval_rep, dim=0)
         return aval_id, aval_rep
 
