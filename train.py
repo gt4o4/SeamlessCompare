@@ -67,7 +67,8 @@ class Trainer:
     def __init__(self, args):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.renderer = OctreeRender_trilinear_fast
-        transform_type, _ = args.transform.get(Path(args.datadir).stem, PurePath(str(args.transform)).stem)
+        transform_type, _ = args.transform.get(Path(args.datadir).stem,
+                                               PurePath(str(args.transform)).stem) if args.transform else (None, None)
 
         # init dataset
         dataset = dataset_dict[args.dataset_name]

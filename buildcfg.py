@@ -32,7 +32,7 @@ def generate_expname(source_name, target_name):
     common_match = SequenceMatcher(
         operator.methodcaller('isspace'), source_name, target_name).find_longest_match()
     prefix = source_name[common_match.a:common_match.a + common_match.size].strip().strip('_') if \
-        common_match.size else f"{source_name.strip().rstrip('_')}_{target_name.strip().strip('_')}"
+        common_match.size >= 3 else f"{source_name.strip().rstrip('_')}_{target_name.strip().strip('_')}"
     return f"{prefix}_merge", prefix
 
 
@@ -97,8 +97,8 @@ class ConfigCommand:
         else:
             at_least_aabb = torch.as_tensor(args.at_least_aabb, device=evaluator.tensorf.aabb.device,
                                             dtype=evaluator.tensorf.aabb.dtype).reshape(2, 3)
-            assert evaluator.tensorf.aabb[0].le(at_least_aabb[0]).all() and \
-                   evaluator.tensorf.aabb[1].ge(at_least_aabb[1]).all(), 'Invalid at_least_aabb'
+            # assert evaluator.tensorf.aabb[0].le(at_least_aabb[0]).all() and \
+            #        evaluator.tensorf.aabb[1].ge(at_least_aabb[1]).all(), 'Invalid at_least_aabb'
 
         args = parser.build_args_command(args)
         if header:
@@ -134,15 +134,18 @@ class ConfigCommand:
 
     def transform_ckpt_config(self, source_name, merge_args, filename):
         target_name = merge_args.expname
-        source_trans, target_trans = merge_args.transform.get(source_name, target_name)
-
-        del target_trans.scale
-
         prefix = os.path.commonprefix((source_name, target_name))
+
+        if merge_args.transform:
+            source_trans, target_trans = merge_args.transform.get(source_name, target_name)
+            del target_trans.scale
+            trdict = {source_name.removeprefix(prefix): vars(source_trans),
+                      target_name.removeprefix(prefix): vars(target_trans)}
+        else:
+            trdict = {target_name.removeprefix(prefix): {}}
+
         with open(filename, mode='w') as f:
-            json.dump({
-                source_name.removeprefix(prefix): vars(source_trans),
-                target_name.removeprefix(prefix): vars(target_trans)}, f, indent=4)
+            json.dump(trdict, f, indent=4)
 
         # copy_ckpt(source_args.ckpt, merge_dir / PurePath(os.path.basename(merge_args.datadir)).with_suffix('.th'))
         # merge_args.ckpt = copy_ckpt(merge_args.ckpt, merge_dir / os.path.basename(merge_args.ckpt))
@@ -159,16 +162,19 @@ class ConfigCommand:
         source_args, _ = parser.parse_known_args(args=(), config_file_contents=source_cfg)
         target_args, _ = parser.parse_known_args(args=(), config_file_contents=target_cfg)
 
-        _, tgt_trans = source_args.transform.get(source_args.expname, target_args.expname)
+        if source_args.transform:
+            _, tgt_trans = source_args.transform.get(source_args.expname, target_args.expname)
+            aabb = np.asarray(boundingBox(Vector3(*target_args.at_least_aabb[:3]),
+                                          Vector3(*target_args.at_least_aabb[3:]))).reshape(-1, 3)
+            aabb = np.hstack((aabb, np.ones((aabb.shape[0], 1))))
+            aabb = np.matmul(aabb, tgt_trans.matrix().T)[..., :3]
+            aabb_min, aabb_max = np.min(aabb, axis=0), np.max(aabb, axis=0)
 
-        aabb = np.asarray(boundingBox(Vector3(*target_args.at_least_aabb[:3]),
-                                      Vector3(*target_args.at_least_aabb[3:]))).reshape(-1, 3)
-        aabb = np.hstack((aabb, np.ones((aabb.shape[0], 1))))
-        aabb = np.matmul(aabb, tgt_trans.matrix().T)[..., :3]
-        aabb_min = np.min(aabb, axis=0)
-        aabb_max = np.max(aabb, axis=0)
+            print('at_least_aabb = ', at_least_aabb := aabb_min.tolist() + aabb_max.tolist())
+        else:
+            at_least_aabb = target_args.at_least_aabb
+            aabb_min, aabb_max = at_least_aabb[:3], at_least_aabb[3:]
 
-        print('at_least_aabb = ', at_least_aabb := aabb_min.tolist() + aabb_max.tolist())
         if aabb_ref := source_args.at_least_aabb:
             print('cur_aabb = ', aabb_ref[0].tolist() + aabb_ref[1].tolist())
             aabb_min = np.minimum(aabb_ref[0], aabb_min)

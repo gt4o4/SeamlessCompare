@@ -1,6 +1,6 @@
 dataset_name = blender
-datadir = /home/wenri/pCloudDrive/HKPostdoc/SIGGRAPHAsia23/SA2023Data/seamless_nerf_datasets/female_sculpture
-expname = female_sculpture
+datadir = /home/wenri/pCloudDrive/HKPostdoc/SIGGRAPHAsia23/SA2023Data/seamless_nerf_datasets/bear_legs
+expname = bear_legs
 basedir = ./log
 
 n_iters = 30000
@@ -11,7 +11,6 @@ N_voxel_final = 27000000 # 300**3
 upsamp_list = [2000,3000,4000,5500,7000]
 update_AlphaMask_list = [2000,4000]
 step_ratio = 0.5
-#at_least_aabb = [-0.4606, -0.6732, 0.0591, 0.5315, 0.2008, 0.5787]
 
 N_vis = 5
 vis_every = 10000

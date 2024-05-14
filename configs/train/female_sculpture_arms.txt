@@ -1,6 +1,6 @@
 dataset_name = blender
-datadir = data/seamless/female_sculpture_arms
-expname = tensorf_female_sculpture_arms_VM
+datadir = /home/wenri/pCloudDrive/HKPostdoc/SIGGRAPHAsia23/SA2023Data/seamless_nerf_datasets/female_sculpture_arms
+expname = female_sculpture_arms
 basedir = ./log
 
 n_iters = 30000
