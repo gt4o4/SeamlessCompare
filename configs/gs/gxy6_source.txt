@@ -1,8 +1,8 @@
 dataset_name = blender
-datadir = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/datasets/gxy2_target
-expname = gxy2_target
+datadir = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/datasets/gxy6_source
+expname = gxy6_source
 basedir = ./log
-transform = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/rigidTrans/gxy2.json
+transform = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/rigidTrans/gxy6.json
 
 n_iters = 30000
 batch_size = 16384
@@ -32,8 +32,8 @@ fea_pe = 2
 
 L1_weight_inital = 8e-5
 L1_weight_rest = 4e-5
-rm_weight_mask_thre = 1e-1
-init_density_scale = 0.4
+rm_weight_mask_thre = 1e-4
+init_density_scale = 0.8
 
 ## please uncomment following configuration if hope to training on cp model
 #model_name = TensorCP
