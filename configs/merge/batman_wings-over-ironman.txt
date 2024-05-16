@@ -1,12 +1,10 @@
 dataset_name = blender
-datadir = data/seamless/ironman
-expname = merge_batman_wings_over_ironman
+datadir = /home/wenri/pCloudDrive/HKPostdoc/SIGGRAPHAsia23/SA2023Data/seamless_nerf_datasets/ironman
+expname = man_merge
 basedir = ./log
-ckpt = ./log/merge_batman_wings_over_ironman/batman_wings_tensorfvm.th
+ckpt = ./log/batman_wings/batman_wings.th
 N_vis = 5
-
-matrix = [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]
-# matrix = [1.0669995546340942, 0.0, 0.0, 0.008616231381893158, 0.0, 1.0669995546340942, 0.0, -0.015135876834392548, 0.0, 0.0, 1.0669995546340942, -0.035136133432388306, 0.0, 0.0, 0.0, 1.0]
+transform = log/man_merge/man_transforms.json
 
 render_only = 1
 export_mesh = 1

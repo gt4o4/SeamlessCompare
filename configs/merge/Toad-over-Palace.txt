@@ -1,15 +1,15 @@
 dataset_name = nsvf
-datadir = data/gbcseldb/Palace
-expname = merge_Toad_over_Palace
-basedir = ./log
-ckpt = ./ref/tensorf_Toad_VM_colorVMSplit/tensorf_Toad_VM.th
+;datadir = data/gbcseldb/Palace
+;expname = merge_Toad_over_Palace
+;basedir = ./log
+;ckpt = ./ref/tensorf_Toad_VM_colorVMSplit/tensorf_Toad_VM.th
 N_vis = 5
 
 matrix = [0.7702, 0.0000, 0.0000, 0.1255, 0.0000, 0.7702, 0.0000, -0.0732, 0.0000, 0.0000, 0.7702, -0.1245, 0.0000, 0.0000, 0.0000, 1.0000]
 
-render_only = 1
-# export_mesh = 1
-render_test = 1
+;render_only = 1
+;export_mesh = 1
+;render_test = 1
 
 model_name = ColorVMSplit
 batch_size = 131072

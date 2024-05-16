@@ -1,6 +1,6 @@
 dataset_name = blender
-datadir = /home/wenri/pCloudDrive/HKPostdoc/SIGGRAPHAsia23/SA2023Data/seamless_nerf_datasets/female_sculpture_arms
-expname = female_sculpture_arms
+datadir = /home/wenri/pCloudDrive/HKPostdoc/SIGGRAPHAsia23/SA2023Data/seamless_nerf_datasets/batman_wings
+expname = batman_wings
 basedir = ./log
 
 n_iters = 30000

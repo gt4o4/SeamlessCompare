@@ -25,7 +25,8 @@ class Merger(Evaluator):
         self.args = args
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.target = self.build_network(self.args.ckpt)
-        transform_type, tgt_trans = args.transform.get(Path(args.datadir).stem, Path(args.ckpt).stem)
+        transform_type, tgt_trans = args.transform.get(Path(args.datadir).stem, Path(args.ckpt).stem) \
+            if args.transform else (None, None)
         if tgt_trans and not args.matrix:
             args.matrix = tgt_trans.matrix().ravel().tolist()
 

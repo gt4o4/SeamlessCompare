@@ -135,14 +135,17 @@ class ConfigCommand:
     def transform_ckpt_config(self, source_name, merge_args, filename):
         target_name = merge_args.expname
         prefix = os.path.commonprefix((source_name, target_name))
+        strip = '_'
 
-        if merge_args.transform:
+        if merge_args.matrix:
+            return None
+        elif merge_args.transform:
             source_trans, target_trans = merge_args.transform.get(source_name, target_name)
             del target_trans.scale
-            trdict = {source_name.removeprefix(prefix): vars(source_trans),
-                      target_name.removeprefix(prefix): vars(target_trans)}
+            trdict = {source_name.removeprefix(prefix).strip(strip): vars(source_trans),
+                      target_name.removeprefix(prefix).strip(strip): vars(target_trans)}
         else:
-            trdict = {target_name.removeprefix(prefix): {}}
+            trdict = {target_name.removeprefix(prefix).strip(strip): {}}
 
         with open(filename, mode='w') as f:
             json.dump(trdict, f, indent=4)

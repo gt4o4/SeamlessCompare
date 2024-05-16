@@ -1,7 +1,7 @@
 
 dataset_name = nsvf
-datadir = data/gbcseldb/Palace
-expname =  tensorf_Palace_VM
+datadir = /home/wenri/pCloudDrive/HKPostdoc/SIGGRAPHAsia23/SA2023Data/gbcseldb/Palace
+expname =  Palace
 basedir = ./log
 
 n_iters = 30000
@@ -19,7 +19,7 @@ render_test = 1
 
 n_lamb_sigma = [16,16,16]
 n_lamb_sh = [48,48,48]
-model_name = TensorVMSplit
+model_name = ColorVMSplit
 
 shadingMode = PoissonMLPRender
 fea2denseAct = softplus
