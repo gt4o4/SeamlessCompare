@@ -97,8 +97,8 @@ class ConfigCommand:
         else:
             at_least_aabb = torch.as_tensor(args.at_least_aabb, device=evaluator.tensorf.aabb.device,
                                             dtype=evaluator.tensorf.aabb.dtype).reshape(2, 3)
-            # assert evaluator.tensorf.aabb[0].le(at_least_aabb[0]).all() and \
-            #        evaluator.tensorf.aabb[1].ge(at_least_aabb[1]).all(), 'Invalid at_least_aabb'
+            assert evaluator.tensorf.aabb[0].le(at_least_aabb[0]).all() and \
+                   evaluator.tensorf.aabb[1].ge(at_least_aabb[1]).all(), 'Invalid at_least_aabb'
 
         args = parser.build_args_command(args)
         if header:
