@@ -1,0 +1,35 @@
+{
+    "source": {
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "trans": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rot": [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "readme": "rot is a quaternion in (r,x,y,z) format"
+    },
+    "target": {
+        "trans": [
+            0.12449660897254944,
+            -0.4978480339050293,
+            0.029050536453723907
+        ],
+        "rot": [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "readme": "rot is a quaternion in (r,x,y,z) format"
+    }
+}

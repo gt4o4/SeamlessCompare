@@ -1,0 +1,54 @@
+[Merge]  # Wrote config file to Merge
+expname = gxy1_merge
+datadir = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/datasets/gxy1_source
+transform = log/gxy1_merge/gxy1_transforms.json
+batch_size = 16384
+model_name = ColorVMSplit
+ckpt = log/gxy1_target/gxy1_target.th
+render_only = true
+
+[Source]  # Wrote config file to Source
+; expname = gxy1_source
+; datadir = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/datasets/gxy1_source
+; transform = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/rigidTrans/gxy1.json
+; model_name = ColorVMSplit
+; batch_size = 16384
+; lr_decay_iters = 30000
+; L1_weight_inital = 8e-05
+; L1_weight_rest = 4e-05
+; n_lamb_sigma = [16, 16, 16]
+; n_lamb_sh = [48, 48, 48]
+; init_density_scale = 0.8
+; at_least_aabb = [-0.6577623828461626, -0.22719613139228806, -0.16729682024959724, -0.27546749372177903, 0.14513166994931098, 0.1735556629009167]
+; shadingMode = PoissonMLPRender
+; view_pe = 2
+; fea_pe = 2
+; ckpt = log/gxy1_source/gxy1_source.th
+; render_only = true
+; N_voxel_init = 2097156
+; upsamp_list = [2000, 3000, 4000, 5500, 7000]
+; update_AlphaMask_list = [2000, 4000]
+
+[Target]  # Wrote config file to Target
+; expname = gxy1_target
+; datadir = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/datasets/gxy1_target
+; transform = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/rigidTrans/gxy1.json
+; model_name = ColorVMSplit
+; batch_size = 16384
+; lr_decay_iters = 30000
+; L1_weight_inital = 8e-05
+; L1_weight_rest = 4e-05
+; n_lamb_sigma = [16, 16, 16]
+; n_lamb_sh = [48, 48, 48]
+; init_density_scale = 0.8
+; at_least_aabb = [-0.2683464586734772, -0.2683464586734772, -0.44220471382141113, 0.47999998927116394, 0.38929131627082825, 0.24566927552223206]
+; shadingMode = PoissonMLPRender
+; view_pe = 2
+; fea_pe = 2
+; ckpt = log/gxy1_target/gxy1_target.th
+; render_only = true
+; N_voxel_init = 2097156
+; upsamp_list = [2000, 3000, 4000, 5500, 7000]
+; update_AlphaMask_list = [2000, 4000]
+
+# 2024-05-17 02:34:04.118125

@@ -1,0 +1,54 @@
+[Merge]  # Wrote config file to Merge
+expname = gxy4_merge
+datadir = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/datasets/gxy4_source
+transform = log/gxy4_merge/gxy4_transforms.json
+batch_size = 16384
+model_name = ColorVMSplit
+ckpt = log/gxy4_target/gxy4_target.th
+render_only = true
+
+[Source]  # Wrote config file to Source
+; expname = gxy4_source
+; datadir = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/datasets/gxy4_source
+; transform = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/rigidTrans/gxy4.json
+; model_name = ColorVMSplit
+; batch_size = 16384
+; lr_decay_iters = 30000
+; L1_weight_inital = 8e-05
+; L1_weight_rest = 4e-05
+; n_lamb_sigma = [16, 16, 16]
+; n_lamb_sh = [48, 48, 48]
+; init_density_scale = 0.8
+; at_least_aabb = [-1.3282593190670013, -1.1946983933448792, -0.5496895834803581, 1.6244966089725494, 0.4588449001312256, 0.7022788599133492]
+; shadingMode = PoissonMLPRender
+; view_pe = 2
+; fea_pe = 2
+; ckpt = log/gxy4_source/gxy4_source.th
+; render_only = true
+; N_voxel_init = 2097156
+; upsamp_list = [2000, 3000, 4000, 5500, 7000]
+; update_AlphaMask_list = [2000, 4000]
+
+[Target]  # Wrote config file to Target
+; expname = gxy4_target
+; datadir = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/datasets/gxy4_target
+; transform = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/rigidTrans/gxy4.json
+; model_name = ColorVMSplit
+; batch_size = 16384
+; lr_decay_iters = 30000
+; L1_weight_inital = 8e-05
+; L1_weight_rest = 4e-05
+; n_lamb_sigma = [16, 16, 16]
+; n_lamb_sh = [48, 48, 48]
+; init_density_scale = 0.8
+; at_least_aabb = [-1.4527559280395508, -0.6968503594398499, -0.578740119934082, 1.5, 0.9566929340362549, 0.6732283234596252]
+; shadingMode = PoissonMLPRender
+; view_pe = 2
+; fea_pe = 2
+; ckpt = log/gxy4_target/gxy4_target.th
+; render_only = true
+; N_voxel_init = 2097156
+; upsamp_list = [2000, 3000, 4000, 5500, 7000]
+; update_AlphaMask_list = [2000, 4000]
+
+# 2024-05-17 14:43:16.797335

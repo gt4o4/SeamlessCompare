@@ -238,11 +238,4 @@ fabric.properties
 
 
 # Tempfiles
-*.png
-*.json*
 *.obj
-
-# Project Debug
-log*/
-ref/
-data/

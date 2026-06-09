@@ -1,0 +1,53 @@
+[Merge]  # Wrote config file to Merge
+expname = gxy3_merge
+datadir = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/datasets/gxy3_source
+transform = log/gxy3_merge/gxy3_transforms.json
+model_name = ColorVMSplit
+ckpt = log/gxy3_target/gxy3_target.th
+render_only = true
+
+[Source]  # Wrote config file to Source
+; expname = gxy3_source
+; datadir = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/datasets/gxy3_source
+; transform = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/rigidTrans/gxy3.json
+; model_name = ColorVMSplit
+; batch_size = 8192
+; lr_decay_iters = 30000
+; L1_weight_inital = 8e-05
+; L1_weight_rest = 4e-05
+; n_lamb_sigma = [16, 16, 16]
+; n_lamb_sh = [48, 48, 48]
+; init_density_scale = 0.1
+; at_least_aabb = [-2.9318802295946798, -3.3497416191050187, -4.326561394030413, 3.017549980169911, 2.8027127219039274, 1.8965311444989894]
+; shadingMode = PoissonMLPRender
+; view_pe = 2
+; fea_pe = 2
+; ckpt = log/gxy3_source/gxy3_source.th
+; render_only = true
+; N_voxel_init = 2097156
+; upsamp_list = [2000, 3000, 4000, 5500, 7000]
+; update_AlphaMask_list = [2000, 4000]
+
+[Target]  # Wrote config file to Target
+; expname = gxy3_target
+; datadir = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/datasets/gxy3_target
+; transform = /home/wenri/pCloudDrive/ResearchProjects/SIGGRAPHAsia24/seamlessGS13/rigidTrans/gxy3.json
+; model_name = ColorVMSplit
+; batch_size = 8192
+; lr_decay_iters = 30000
+; L1_weight_inital = 8e-05
+; L1_weight_rest = 4e-05
+; n_lamb_sigma = [16, 16, 16]
+; n_lamb_sh = [48, 48, 48]
+; init_density_scale = 0.4
+; at_least_aabb = [-2.98799991607666, -2.893889904022217, -2.5645039081573486, 1.3410710096359253, 2.98799991607666, 1.5292911529541016]
+; shadingMode = PoissonMLPRender
+; view_pe = 2
+; fea_pe = 2
+; ckpt = log/gxy3_target/gxy3_target.th
+; render_only = true
+; N_voxel_init = 2097156
+; upsamp_list = [2000, 3000, 4000, 5500, 7000]
+; update_AlphaMask_list = [2000, 4000]
+
+# 2024-05-16 22:27:11.660339
